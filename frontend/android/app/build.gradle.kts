@@ -6,9 +6,11 @@ plugins {
 }
 
 android {
+    ndkVersion = "28.2.13676358"
     namespace = "com.example.frontend"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Do not pin flutter.ndkVersion: a broken local NDK (missing source.properties)
+    // breaks configure. AGP uses an installed NDK when native code needs it.
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
