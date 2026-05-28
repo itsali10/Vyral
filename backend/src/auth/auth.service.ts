@@ -15,6 +15,7 @@ import { GoogleAuthDto } from './dto/google-auth.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -167,6 +168,32 @@ export class AuthService {
     });
 
     if (error) throw new BadRequestException(error.message);
+
+    return { message: 'Password updated successfully' };
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Account not found');
+
+    const { error: signInError } = await this.supabase
+      .getClient()
+      .auth.signInWithPassword({
+        email: user.email,
+        password: dto.currentPassword,
+      });
+
+    if (signInError) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const { error } = await this.supabase
+      .getAdminClient()
+      .auth.admin.updateUserById(userId, { password: dto.newPassword });
+
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
 
     return { message: 'Password updated successfully' };
   }

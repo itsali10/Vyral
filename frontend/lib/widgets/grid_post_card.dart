@@ -1,31 +1,40 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../theme/vyral_typography.dart';
 
+import '../services/settings_preferences.dart';
 import '../theme/vyral_theme.dart';
 
 class ExploreGridItem {
   const ExploreGridItem({
+    required this.postId,
     required this.height,
     required this.label,
     required this.username,
     required this.imageColor,
+    this.mediaUrl,
   });
 
+  final String postId;
   final double height;
   final String label;
   final String username;
   final Color imageColor;
+  final String? mediaUrl;
 }
 
 class GridPostCard extends StatelessWidget {
-  const GridPostCard({super.key, required this.item});
+  const GridPostCard({super.key, required this.item, this.onTap});
 
   final ExploreGridItem item;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final imageH = item.height - 36;
-    return SizedBox(
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
       height: item.height,
       child: Container(
         decoration: BoxDecoration(
@@ -41,15 +50,24 @@ class GridPostCard extends StatelessWidget {
               left: 0,
               right: 0,
               height: imageH,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: item.imageColor,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16),
-                  ),
-                ),
-              ),
+              child: item.mediaUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: item.mediaUrl!,
+                      memCacheWidth:
+                          SettingsPreferences.instance.dataSaver ? 480 : null,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(color: item.imageColor),
+                      errorWidget: (_, __, ___) => Container(color: item.imageColor),
+                    )
+                  : Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: item.imageColor,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(16),
+                        ),
+                      ),
+                    ),
             ),
             Positioned(
               left: 0,
@@ -82,6 +100,7 @@ class GridPostCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

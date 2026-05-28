@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../services/api_client.dart';
+import '../services/auth_service.dart';
+import '../services/settings_preferences.dart';
+import '../services/users_api_service.dart';
+import '../utils/api_error_messages.dart';
+import 'blocked_accounts_screen.dart';
+import 'edit_profile_screen.dart';
+import 'feed_preferences_screen.dart';
+import 'muted_words_screen.dart';
+import 'linked_accounts_screen.dart';
+import 'password_security_screen.dart';
+
 import '../theme/theme_scope.dart';
 import '../theme/vyral_theme.dart';
 import '../theme/vyral_typography.dart';
 import '../widgets/vyral_navigation_drawer.dart';
+import '../widgets/vyral_scaffold.dart';
 import '../widgets/vyral_universal_actions.dart';
 
 /// Brand accents for settings rows (warm, iOS-adjacent).
@@ -30,13 +43,63 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _showLikesPublicly = true;
-  bool _notifLikes = true;
-  bool _notifComments = true;
-  bool _notifFollowers = true;
-  bool _notifTrending = false;
-  bool _dataSaver = false;
-  bool _haptics = true;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    SettingsPreferences.instance.addListener(_onPrefsChanged);
+    _loadPrefs();
+  }
+
+  @override
+  void dispose() {
+    SettingsPreferences.instance.removeListener(_onPrefsChanged);
+    super.dispose();
+  }
+
+  void _onPrefsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadPrefs() async {
+    await SettingsPreferences.instance.loadFromApi();
+    if (!mounted) return;
+    setState(() => _loading = false);
+  }
+
+  Future<void> _persistToggle(String apiKey, bool value) async {
+    try {
+      await SettingsPreferences.instance.update({apiKey: value});
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      _showSnack(friendlyApiMessage(e));
+    }
+  }
+
+  String _feedTabLabel(String key) {
+    switch (key) {
+      case 'following':
+        return 'Following';
+      case 'trending':
+        return 'Trending';
+      default:
+        return 'For You';
+    }
+  }
+
+  String _accentLabel(String key) {
+    switch (key) {
+      case 'teal':
+        return 'Teal';
+      case 'purple':
+        return 'Purple';
+      case 'amber':
+        return 'Amber';
+      default:
+        return 'Dusty rose';
+    }
+  }
 
   Future<void> _openPrivacy() async {
     final uri = Uri.parse('https://vyral.app/privacy');
@@ -45,10 +108,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SnackBar(content: Text('Could not open link')),
       );
     }
-  }
-
-  void _logToggle(String label, bool value) {
-    debugPrint('Settings toggle "$label": $value');
   }
 
   Future<void> _confirmLogOut() async {
@@ -68,7 +127,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (go == true && mounted) {
-      debugPrint('Settings: log out confirmed');
+      await AuthService.instance.logout();
+      if (!mounted) return;
+      await Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
     }
   }
 
@@ -89,14 +150,162 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (go == true && mounted) {
-      debugPrint('Settings: delete account confirmed');
+      try {
+        await AuthService.instance.deleteAccount();
+        if (!mounted) return;
+        await Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      } on ApiException catch (e) {
+        if (!mounted) return;
+        _showSnack(friendlyApiMessage(e, authContext: true));
+      } catch (e) {
+        if (!mounted) return;
+        _showSnack('Could not delete account: $e');
+      }
     }
   }
 
-  void _openEditProfile() {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (context) => const _EditProfileScreen()),
+  Future<void> _openEditProfile() async {
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(builder: (context) => const EditProfileScreen()),
     );
+    if (updated == true && mounted) setState(() {});
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> _toggleProfileVisibility() async {
+    final current = AuthService.instance.user;
+    if (current == null) return;
+    final nextPrivate = !current.isPrivate;
+    try {
+      await UsersApiService.instance.updateMe({'isPrivate': nextPrivate});
+      await AuthService.instance.refreshProfile();
+      if (!mounted) return;
+      setState(() {});
+      _showSnack(nextPrivate ? 'Profile is private' : 'Profile is public');
+    } on ApiException catch (e) {
+      _showSnack(friendlyApiMessage(e));
+    } catch (e) {
+      _showSnack('Could not update visibility: $e');
+    }
+  }
+
+  void _showAboutDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('About Vyral'),
+        content: const Text(
+          'Vyral is a social feed app built with Flutter and NestJS.\n\n'
+          'Version 1.0.0',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openFeedPreferences() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const FeedPreferencesScreen()),
+    );
+  }
+
+  Future<void> _openLanguage() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Language'),
+        content: const Text('English (US) is the only language available in this build.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openAccessibility() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Accessibility'),
+        content: const Text(
+          'Use your device system settings for text size and display scaling. '
+          'Vyral respects the platform accessibility settings.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _toggleGridDensity() async {
+    final compact = !SettingsPreferences.instance.exploreGridCompact;
+    try {
+      await SettingsPreferences.instance.update({'exploreGridCompact': compact});
+      _showSnack(compact ? 'Explore grid: compact' : 'Explore grid: comfortable');
+    } on ApiException catch (e) {
+      _showSnack(friendlyApiMessage(e));
+    }
+  }
+
+  Future<void> _pickAccentColor() async {
+    const options = [
+      ('rose', 'Dusty rose', SettingsPalette.pink),
+      ('teal', 'Teal', SettingsPalette.teal),
+      ('purple', 'Purple', SettingsPalette.purple),
+      ('amber', 'Amber', SettingsPalette.amber),
+    ];
+    final current = SettingsPreferences.instance.settings.accentColor;
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Accent color'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: options
+              .map(
+                (o) => ListTile(
+                  leading: CircleAvatar(backgroundColor: o.$3),
+                  title: Text(o.$2),
+                  trailing: current == o.$1 ? const Icon(Icons.check_rounded) : null,
+                  onTap: () => Navigator.pop(ctx, o.$1),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+    if (picked == null) return;
+    try {
+      await SettingsPreferences.instance.update({'accentColor': picked});
+      _showSnack('Accent updated');
+    } on ApiException catch (e) {
+      _showSnack(friendlyApiMessage(e));
+    }
+  }
+
+  Future<void> _openLinkedAccounts() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const LinkedAccountsScreen()),
+    );
+    if (mounted) setState(() {});
+  }
+
+  String _userInitials() {
+    final name = AuthService.instance.user?.fullName.trim() ?? '';
+    if (name.isEmpty) return 'VY';
+    final parts = name.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.length == 1) {
+      return parts.first.substring(0, 1).toUpperCase();
+    }
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
   @override
@@ -109,7 +318,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final muted = isDark ? VyralColors.mutedText : VyralColors.secondaryText;
     final appBarBg = isDark ? VyralColors.surface : VyralColors.cardBackground;
 
-    return Scaffold(
+    return VyralScaffold(
       backgroundColor: pageBg,
       drawer: const VyralNavigationDrawer(),
       appBar: AppBar(
@@ -136,7 +345,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const VyralUniversalActions(compact: true),
         ],
       ),
-      body: SingleChildScrollView(
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 48),
         physics: const BouncingScrollPhysics(),
         child: Column(
@@ -150,9 +361,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               heading: heading,
               children: [
                 SettingsRow(
-                  icon: _avatarGradient(),
-                  label: 'Alex Rivera',
-                  subtitle: '@alexrivera',
+                  icon: _avatarGradient(_userInitials()),
+                  label: AuthService.instance.user?.fullName ?? 'Your profile',
+                  subtitle: AuthService.instance.user?.displayUsername ?? '@username',
                   onPress: _openEditProfile,
                   right: SettingsRight.chevron,
                   heading: heading,
@@ -161,8 +372,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SettingsRow(
                   icon: Icon(Icons.lock_outline_rounded, size: 22, color: SettingsPalette.purple),
                   label: 'Password & security',
-                  onPress: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Password & security — coming soon')),
+                  onPress: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (context) => const PasswordSecurityScreen(),
+                    ),
                   ),
                   right: SettingsRight.chevron,
                   heading: heading,
@@ -171,13 +384,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SettingsRow(
                   icon: Icon(Icons.link_rounded, size: 22, color: SettingsPalette.blue),
                   label: 'Linked accounts',
-                  subtitle: 'Connect Instagram, Pinterest',
-                  badgeText: 'Soon',
-                  badgeVariant: SettingsBadgeVariant.soon,
-                  onPress: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Linked accounts — coming soon')),
-                  ),
-                  right: SettingsRight.badge,
+                  subtitle: AuthService.instance.user?.email ?? 'Email sign-in',
+                  onPress: _openLinkedAccounts,
+                  right: SettingsRight.chevron,
                   heading: heading,
                   muted: muted,
                 ),
@@ -193,8 +402,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SettingsRow(
                   icon: Icon(Icons.visibility_outlined, size: 22, color: SettingsPalette.teal),
                   label: 'Profile visibility',
-                  subtitle: 'Public',
-                  onPress: () {},
+                  subtitle: AuthService.instance.user?.isPrivate == true
+                      ? 'Private'
+                      : 'Public',
+                  onPress: _toggleProfileVisibility,
                   right: SettingsRight.chevron,
                   heading: heading,
                   muted: muted,
@@ -202,7 +413,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SettingsRow(
                   icon: Icon(Icons.person_off_outlined, size: 22, color: SettingsPalette.coral),
                   label: 'Blocked accounts',
-                  onPress: () {},
+                  onPress: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const BlockedAccountsScreen(),
+                    ),
+                  ),
                   right: SettingsRight.chevron,
                   heading: heading,
                   muted: muted,
@@ -210,7 +425,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SettingsRow(
                   icon: Icon(Icons.volume_off_outlined, size: 22, color: SettingsPalette.amber),
                   label: 'Muted words',
-                  onPress: () {},
+                  subtitle: SettingsPreferences.instance.settings.mutedWords.isEmpty
+                      ? 'None configured'
+                      : '${SettingsPreferences.instance.settings.mutedWords.length} word(s)',
+                  onPress: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(builder: (_) => const MutedWordsScreen()),
+                  ),
                   right: SettingsRight.chevron,
                   heading: heading,
                   muted: muted,
@@ -218,11 +438,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SettingsRow(
                   icon: Icon(Icons.favorite_border_rounded, size: 22, color: SettingsPalette.pink),
                   label: 'Show likes publicly',
-                  toggleValue: _showLikesPublicly,
-                  onToggle: (v) {
-                    setState(() => _showLikesPublicly = v);
-                    _logToggle('Show likes publicly', v);
-                  },
+                  toggleValue: SettingsPreferences.instance.settings.showLikesPublicly,
+                  onToggle: (v) => _persistToggle('showLikesPublicly', v),
                   right: SettingsRight.toggle,
                   heading: heading,
                   muted: muted,
@@ -265,8 +482,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SettingsRow(
                   icon: Icon(Icons.palette_outlined, size: 22, color: SettingsPalette.purple),
                   label: 'Accent color',
-                  subtitle: 'Dusty rose · default',
-                  onPress: () {},
+                  subtitle: _accentLabel(SettingsPreferences.instance.settings.accentColor),
+                  onPress: _pickAccentColor,
                   right: SettingsRight.chevron,
                   heading: heading,
                   muted: muted,
@@ -274,8 +491,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SettingsRow(
                   icon: Icon(Icons.grid_view_rounded, size: 22, color: SettingsPalette.teal),
                   label: 'Explore grid density',
-                  subtitle: 'Comfortable',
-                  onPress: () {},
+                  subtitle: SettingsPreferences.instance.exploreGridCompact
+                      ? 'Compact'
+                      : 'Comfortable',
+                  onPress: _toggleGridDensity,
                   right: SettingsRight.chevron,
                   heading: heading,
                   muted: muted,
@@ -292,11 +511,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SettingsRow(
                   icon: Icon(Icons.favorite_border_rounded, size: 22, color: SettingsPalette.pink),
                   label: 'Likes',
-                  toggleValue: _notifLikes,
-                  onToggle: (v) {
-                    setState(() => _notifLikes = v);
-                    _logToggle('Likes', v);
-                  },
+                  toggleValue: SettingsPreferences.instance.settings.notifLikes,
+                  onToggle: (v) => _persistToggle('notifLikes', v),
                   right: SettingsRight.toggle,
                   heading: heading,
                   muted: muted,
@@ -304,11 +520,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SettingsRow(
                   icon: Icon(Icons.chat_bubble_outline_rounded, size: 22, color: SettingsPalette.blue),
                   label: 'Comments',
-                  toggleValue: _notifComments,
-                  onToggle: (v) {
-                    setState(() => _notifComments = v);
-                    _logToggle('Comments', v);
-                  },
+                  toggleValue: SettingsPreferences.instance.settings.notifComments,
+                  onToggle: (v) => _persistToggle('notifComments', v),
                   right: SettingsRight.toggle,
                   heading: heading,
                   muted: muted,
@@ -316,11 +529,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SettingsRow(
                   icon: Icon(Icons.person_add_alt_1_outlined, size: 22, color: SettingsPalette.teal),
                   label: 'New followers',
-                  toggleValue: _notifFollowers,
-                  onToggle: (v) {
-                    setState(() => _notifFollowers = v);
-                    _logToggle('New followers', v);
-                  },
+                  toggleValue: SettingsPreferences.instance.settings.notifFollowers,
+                  onToggle: (v) => _persistToggle('notifFollowers', v),
                   right: SettingsRight.toggle,
                   heading: heading,
                   muted: muted,
@@ -328,11 +538,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SettingsRow(
                   icon: Icon(Icons.trending_up_rounded, size: 22, color: SettingsPalette.amber),
                   label: 'Your post is trending',
-                  toggleValue: _notifTrending,
-                  onToggle: (v) {
-                    setState(() => _notifTrending = v);
-                    _logToggle('Trending', v);
-                  },
+                  toggleValue: SettingsPreferences.instance.settings.notifTrending,
+                  onToggle: (v) => _persistToggle('notifTrending', v),
                   right: SettingsRight.toggle,
                   heading: heading,
                   muted: muted,
@@ -349,8 +556,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SettingsRow(
                   icon: Icon(Icons.tune_rounded, size: 22, color: SettingsPalette.purple),
                   label: 'Feed preferences',
-                  subtitle: 'Tune what you see',
-                  onPress: () {},
+                  subtitle:
+                      'Default: ${_feedTabLabel(SettingsPreferences.instance.defaultFeedTab)}',
+                  onPress: _openFeedPreferences,
                   right: SettingsRight.chevron,
                   heading: heading,
                   muted: muted,
@@ -359,7 +567,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icon(Icons.language_rounded, size: 22, color: SettingsPalette.teal),
                   label: 'Language',
                   subtitle: 'English',
-                  onPress: () {},
+                  onPress: _openLanguage,
                   right: SettingsRight.chevron,
                   heading: heading,
                   muted: muted,
@@ -370,7 +578,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: 'Text size, contrast, motion',
                   badgeText: 'New',
                   badgeVariant: SettingsBadgeVariant.newBadge,
-                  onPress: () {},
+                  onPress: _openAccessibility,
                   right: SettingsRight.chevron,
                   heading: heading,
                   muted: muted,
@@ -388,11 +596,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icon(Icons.wifi_off_rounded, size: 22, color: SettingsPalette.amber),
                   label: 'Data saver',
                   subtitle: 'Load lower-res images',
-                  toggleValue: _dataSaver,
-                  onToggle: (v) {
-                    setState(() => _dataSaver = v);
-                    _logToggle('Data saver', v);
-                  },
+                  toggleValue: SettingsPreferences.instance.dataSaver,
+                  onToggle: (v) => _persistToggle('dataSaver', v),
                   right: SettingsRight.toggle,
                   heading: heading,
                   muted: muted,
@@ -400,11 +605,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SettingsRow(
                   icon: Icon(Icons.vibration_rounded, size: 22, color: SettingsPalette.coral),
                   label: 'Haptic feedback',
-                  toggleValue: _haptics,
-                  onToggle: (v) {
-                    setState(() => _haptics = v);
-                    _logToggle('Haptic feedback', v);
-                  },
+                  toggleValue: SettingsPreferences.instance.hapticsEnabled,
+                  onToggle: (v) => _persistToggle('hapticsEnabled', v),
                   right: SettingsRight.toggle,
                   heading: heading,
                   muted: muted,
@@ -421,7 +623,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icon(Icons.info_outline_rounded, size: 22, color: muted),
                   label: 'About Vyral',
                   subtitle: 'v1.0.0',
-                  onPress: () {},
+                  onPress: _showAboutDialog,
                   right: SettingsRight.chevron,
                   heading: heading,
                   muted: muted,
@@ -461,7 +663,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _avatarGradient() {
+  Widget _avatarGradient(String initials) {
     return Container(
       width: 36,
       height: 36,
@@ -478,7 +680,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
       child: Text(
-        'AR',
+        initials,
         style: VyralTypography.inter(
           fontSize: 13,
           fontWeight: FontWeight.w600,
@@ -782,34 +984,3 @@ class _ThemeSegmentedControl extends StatelessWidget {
   }
 }
 
-class _EditProfileScreen extends StatelessWidget {
-  const _EditProfileScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? VyralColors.background : VyralColors.mainBackground;
-    final heading = isDark ? VyralColors.white : VyralColors.primaryText;
-    return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        backgroundColor: isDark ? VyralColors.surface : VyralColors.cardBackground,
-        elevation: 0,
-        title: Text(
-          'Edit profile',
-          style: VyralTypography.inter(fontSize: 17, fontWeight: FontWeight.w500, color: heading),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.chevron_left_rounded),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Center(
-        child: Text(
-          'Edit your profile here.',
-          style: VyralTypography.inter(fontSize: 15, color: isDark ? VyralColors.mutedText : VyralColors.secondaryText),
-        ),
-      ),
-    );
-  }
-}

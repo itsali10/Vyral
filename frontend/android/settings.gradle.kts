@@ -14,13 +14,17 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
+        // Fallback mirrors if Google/Maven TLS fails (common on some networks).
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        maven { url = uri("https://maven.aliyun.com/repository/central") }
+        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
     }
 }
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "8.11.1" apply false
-    id("org.jetbrains.kotlin.android") version "2.2.20" apply false
+    id("org.jetbrains.kotlin.android") version "2.3.0" apply false
 }
 
 include(":app")

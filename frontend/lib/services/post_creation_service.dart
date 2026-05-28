@@ -1,14 +1,21 @@
-import 'dart:io';
+import '../models/picked_media.dart';
+import 'posts_api_service.dart';
 
-/// Stub for future backend / storage integration.
 class PostCreationService {
   PostCreationService._();
   static final PostCreationService instance = PostCreationService._();
 
   Future<void> submitPost({
     required String caption,
-    File? image,
+    PickedMedia? image,
+    List<String>? hashtags,
+    String? location,
   }) async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await PostsApiService.instance.createPost(
+      caption: caption,
+      image: image,
+      hashtags: hashtags,
+      location: location,
+    );
   }
 }

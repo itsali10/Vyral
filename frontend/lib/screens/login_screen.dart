@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../services/api_client.dart';
+import '../services/auth_service.dart';
+import '../services/google_sign_in_flow.dart';
+import '../utils/api_error_messages.dart';
 import '../theme/vyral_typography.dart';
 
 import '../theme/vyral_theme.dart';
@@ -33,10 +37,51 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool get _canSubmit => _emailValid && _passwordController.text.isNotEmpty;
 
-  void _onLogIn() {
+  bool _submitting = false;
+  bool _googleSubmitting = false;
+
+  Future<void> _onGoogle() async {
+    setState(() => _googleSubmitting = true);
+    try {
+      await GoogleSignInFlow.run(
+        context,
+        onSuccess: () {
+          if (!mounted) return;
+          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _googleSubmitting = false);
+    }
+  }
+
+  Future<void> _onLogIn() async {
     setState(() => _attemptedSubmit = true);
-    if (_canSubmit) {
-      Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+    if (!_canSubmit) return;
+
+    setState(() => _submitting = true);
+    try {
+      await AuthService.instance.login(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      if (!mounted) return;
+      await Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyApiMessage(e, authContext: true)),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Login failed. Check your connection.')),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -95,19 +140,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         VyralOpenNavMenuButton(color: heading),
                         const Spacer(),
-                        VyralUniversalActions(
-                          trailing: [
-                            IconButton(
-                              tooltip: 'Skip to home',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () => Navigator.of(context).pushNamed('/home'),
-                              icon: Icon(
-                                Icons.home_outlined,
-                                color: isDark ? VyralColors.softPink : VyralColors.primaryRose,
-                              ),
-                            ),
-                          ],
-                        ),
+                        const VyralUniversalActions(),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -176,7 +209,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {},
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/forgot-password'),
                         child: Text(
                           'Forgot password?',
                           style: VyralTypography.inter(
@@ -191,7 +225,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     SizedBox(
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: _canSubmit ? _onLogIn : _onLogIn,
+                        onPressed: _submitting ? null : _onLogIn,
                         style: ElevatedButton.styleFrom(
                           elevation: 0,
                           backgroundColor: _canSubmit ? buttonEnabledBg : buttonDisabledBg,
@@ -200,14 +234,23 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(28),
                           ),
                         ),
-                        child: Text(
-                          'Log in',
-                          style: VyralTypography.inter(
-                            fontSize: 31 / 2,
-                            fontWeight: FontWeight.w700,
-                            color: _canSubmit ? buttonEnabledFg : buttonDisabledFg,
-                          ),
-                        ),
+                        child: _submitting
+                            ? SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: _canSubmit ? buttonEnabledFg : buttonDisabledFg,
+                                ),
+                              )
+                            : Text(
+                                'Log in',
+                                style: VyralTypography.inter(
+                                  fontSize: 31 / 2,
+                                  fontWeight: FontWeight.w700,
+                                  color: _canSubmit ? buttonEnabledFg : buttonDisabledFg,
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -231,7 +274,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     SizedBox(
                       height: 52,
                       child: OutlinedButton(
-                        onPressed: () {},
+                        onPressed: _googleSubmitting ? null : _onGoogle,
                         style: OutlinedButton.styleFrom(
                           foregroundColor: heading,
                           side: BorderSide(color: inputBorder),
@@ -240,7 +283,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           backgroundColor: isDark ? panelBg : VyralColors.cardBackground,
                         ),
-                        child: Text(
+                        child: _googleSubmitting
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(
                           'G   Continue with Google',
                           style: VyralTypography.inter(
                             fontSize: 15,

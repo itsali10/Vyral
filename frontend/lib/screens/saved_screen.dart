@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import '../main.dart';
+import '../models/saved_collection.dart';
+import '../services/users_api_service.dart';
 import '../theme/vyral_typography.dart';
 
-import '../models/saved_collection.dart';
 import '../theme/vyral_theme.dart';
 import '../widgets/collection_card.dart';
 import '../widgets/vyral_bottom_nav.dart';
 import '../widgets/vyral_navigation_drawer.dart';
+import '../widgets/vyral_refresh_scroll.dart';
+import '../widgets/vyral_scaffold.dart';
 import '../widgets/vyral_universal_actions.dart';
 
 class SavedScreen extends StatefulWidget {
@@ -15,18 +19,60 @@ class SavedScreen extends StatefulWidget {
   State<SavedScreen> createState() => _SavedScreenState();
 }
 
-class _SavedScreenState extends State<SavedScreen> {
-  late List<SavedCollection> _collections;
+class _SavedScreenState extends State<SavedScreen> with RouteAware {
+  List<SavedCollection> _collections = [];
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _collections = const [
-      SavedCollection(name: 'Soft mornings', postCount: '24'),
-      SavedCollection(name: 'Wardrobe notes', postCount: '12'),
-      SavedCollection(name: 'Travel pins', postCount: '48'),
-      SavedCollection(name: 'Recipes to try', postCount: '9'),
-    ];
+    _load();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute<void>) {
+      vyralRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void dispose() {
+    vyralRouteObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final list = await UsersApiService.instance.getCollections();
+      if (!mounted) return;
+      setState(() {
+        _collections = list
+            .map(
+              (c) => SavedCollection(
+                id: c.id,
+                name: c.name,
+                postCount: c.postCount,
+              ),
+            )
+            .toList();
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not load collections: $e')),
+      );
+    }
   }
 
   void _onBottomNav(int index) {
@@ -90,15 +136,10 @@ class _SavedScreenState extends State<SavedScreen> {
               TextField(
                 controller: nameController,
                 autofocus: true,
-                style: VyralTypography.inter(
-                  fontSize: 16,
-                  color: text,
-                ),
+                style: VyralTypography.inter(fontSize: 16, color: text),
                 decoration: InputDecoration(
                   hintText: 'Collection name',
-                  hintStyle: VyralTypography.inter(
-                    color: muted,
-                  ),
+                  hintStyle: VyralTypography.inter(color: muted),
                   filled: true,
                   fillColor: inputBg,
                   border: OutlineInputBorder(
@@ -115,11 +156,13 @@ class _SavedScreenState extends State<SavedScreen> {
                   ),
                 ),
                 textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _submitNewCollection(nameController, sheetContext),
+                onSubmitted: (_) =>
+                    _submitNewCollection(nameController, sheetContext),
               ),
               const SizedBox(height: 20),
               FilledButton(
-                onPressed: () => _submitNewCollection(nameController, sheetContext),
+                onPressed: () =>
+                    _submitNewCollection(nameController, sheetContext),
                 style: FilledButton.styleFrom(
                   backgroundColor: accent,
                   foregroundColor: accentFg,
@@ -143,16 +186,50 @@ class _SavedScreenState extends State<SavedScreen> {
     ).whenComplete(nameController.dispose);
   }
 
-  void _submitNewCollection(TextEditingController controller, BuildContext sheetContext) {
+  Future<void> _submitNewCollection(
+    TextEditingController controller,
+    BuildContext sheetContext,
+  ) async {
     final name = controller.text.trim();
     if (name.isEmpty) return;
-    setState(() {
-      _collections = [
-        ..._collections,
-        SavedCollection(name: name, postCount: '0'),
-      ];
-    });
-    Navigator.of(sheetContext).pop();
+    try {
+      await UsersApiService.instance.createCollection(name);
+      if (!mounted) return;
+      Navigator.of(sheetContext).pop();
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not create collection: $e')),
+      );
+    }
+  }
+
+  Widget _bodyContent(bool isDark, Color muted) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_collections.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            'Nothing saved yet.\nTap Save on a post, then pull down to refresh.',
+            textAlign: TextAlign.center,
+            style: VyralTypography.inter(fontSize: 14, color: muted),
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      itemCount: _collections.length,
+      itemBuilder: (context, index) {
+        return CollectionCard(collection: _collections[index]);
+      },
+    );
   }
 
   @override
@@ -162,7 +239,7 @@ class _SavedScreenState extends State<SavedScreen> {
     final heading = isDark ? VyralColors.white : VyralColors.primaryText;
     final accent = isDark ? VyralColors.softPink : VyralColors.primaryRose;
     final muted = isDark ? VyralColors.mutedText : VyralColors.secondaryText;
-    return Scaffold(
+    return VyralScaffold(
       backgroundColor: pageBg,
       drawer: const VyralNavigationDrawer(),
       appBar: AppBar(
@@ -182,16 +259,16 @@ class _SavedScreenState extends State<SavedScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              '✦',
-              style: VyralTypography.inter(
-                fontSize: 12,
-                color: accent,
-              ),
-            ),
+            Text('✦', style: VyralTypography.inter(fontSize: 12, color: accent)),
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh),
+            color: heading,
+            onPressed: _load,
+          ),
           const VyralUniversalActions(),
           IconButton(
             icon: const Icon(Icons.add),
@@ -207,20 +284,14 @@ class _SavedScreenState extends State<SavedScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Text(
-              'Your collections',
-              style: VyralTypography.inter(
-                fontSize: 14,
-                color: muted,
-              ),
+              'Pull down to refresh · Tap a collection to view posts',
+              style: VyralTypography.inter(fontSize: 13, color: muted),
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-              itemCount: _collections.length,
-              itemBuilder: (context, index) {
-                return CollectionCard(collection: _collections[index]);
-              },
+            child: VyralRefreshScrollView(
+              onRefresh: _load,
+              child: _bodyContent(isDark, muted),
             ),
           ),
           VyralBottomNav(

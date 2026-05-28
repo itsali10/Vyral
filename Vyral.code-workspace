@@ -1,0 +1,13 @@
+{
+  "folders": [
+    {
+      "path": "frontend",
+      "name": "Vyral Flutter"
+    },
+    {
+      "path": "backend",
+      "name": "Backend (do not edit for Flutter)"
+    }
+  ],
+  "settings": {}
+}

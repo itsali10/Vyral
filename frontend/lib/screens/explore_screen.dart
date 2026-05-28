@@ -2,12 +2,18 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import '../models/feed_post.dart';
+import '../services/posts_api_service.dart';
+import '../services/settings_preferences.dart';
 import '../theme/vyral_typography.dart';
 
 import '../theme/vyral_theme.dart';
+import '../screens/post_detail_screen.dart';
 import '../widgets/grid_post_card.dart';
 import '../widgets/vyral_bottom_nav.dart';
 import '../widgets/vyral_navigation_drawer.dart';
+import '../widgets/vyral_refresh_scroll.dart';
+import '../widgets/vyral_scaffold.dart';
 import '../widgets/vyral_universal_actions.dart';
 
 class ExploreScreen extends StatefulWidget {
@@ -26,43 +32,119 @@ class _ExploreScreenState extends State<ExploreScreen> {
   ];
 
   final _searchController = TextEditingController();
-  late final List<ExploreGridItem> _items;
+  List<ExploreGridItem> _items = [];
+  List<FeedPost> _explorePosts = [];
   String _selectedCategory = 'All';
   String _searchText = '';
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    final rnd = Random(42);
-    _items = List.generate(
-      20,
-      (i) => ExploreGridItem(
-        height: 120 + rnd.nextInt(81).toDouble(),
-        label: switch (i % 6) {
-          0 => 'bloom',
-          1 => 'night',
-          2 => 'art',
-          3 => 'vibes',
-          4 => 'shots',
-          _ => 'dream',
-        },
-        username: switch (i % 6) {
-          0 => '@flora',
-          1 => '@lunar',
-          2 => '@studio',
-          3 => '@aura',
-          4 => '@lens',
-          _ => '@star',
-        },
-        imageColor: VyralColors.exploreMasonryShades[i % VyralColors.exploreMasonryShades.length],
-      ),
-    );
+    SettingsPreferences.instance.addListener(_onSettingsChanged);
+    _load();
+  }
+
+  void _onSettingsChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    SettingsPreferences.instance.removeListener(_onSettingsChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final posts = await PostsApiService.instance.explore(
+        q: _searchText,
+        category: _selectedCategory,
+      );
+      final rnd = Random(42);
+      if (!mounted) return;
+      setState(() {
+        _explorePosts = posts;
+        _items = posts.asMap().entries.map((entry) {
+          final i = entry.key;
+          final post = entry.value;
+          final explore = ExploreItem.fromFeedPost(post);
+          return ExploreGridItem(
+            postId: post.id,
+            height: 120 + rnd.nextInt(81).toDouble(),
+            label: explore.label,
+            username: explore.username,
+            mediaUrl: explore.mediaUrl,
+            imageColor: VyralColors.exploreMasonryShades[
+                i % VyralColors.exploreMasonryShades.length],
+          );
+        }).toList();
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  void _showFilterSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'Filter by category',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+              ..._categories.map(
+                (cat) => ListTile(
+                  title: Text(cat),
+                  trailing: _selectedCategory == cat
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () {
+                    setState(() => _selectedCategory = cat);
+                    Navigator.pop(ctx);
+                    _load();
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _openPost(int index) {
+    final item = _items[index];
+    FeedPost? initial;
+    for (final p in _explorePosts) {
+      if (p.id == item.postId) {
+        initial = p;
+        break;
+      }
+    }
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => PostDetailScreen(
+          postId: item.postId,
+          initialPost: initial,
+        ),
+      ),
+    );
   }
 
   void _onBottomNav(int index) {
@@ -84,30 +166,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
-  List<ExploreGridItem> _filteredItems() {
-    var list = _items;
-    if (_selectedCategory != 'All') {
-      final cat = _selectedCategory.toLowerCase();
-      list = list
-          .where(
-            (e) =>
-                e.label.toLowerCase().contains(cat) ||
-                e.username.toLowerCase().contains(cat),
-          )
-          .toList();
-    }
-    final query = _searchText.trim().toLowerCase();
-    if (query.isNotEmpty) {
-      list = list
-          .where(
-            (e) =>
-                e.label.toLowerCase().contains(query) ||
-                e.username.toLowerCase().contains(query),
-          )
-          .toList();
-    }
-    return list;
-  }
+  List<ExploreGridItem> get _filteredItems => _items;
 
   @override
   Widget build(BuildContext context) {
@@ -120,15 +179,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final muted = isDark ? VyralColors.mutedText : VyralColors.secondaryText;
     final selectedChipText = isDark ? VyralColors.deepBlack : VyralColors.cardBackground;
     final chipBg = isDark ? VyralColors.surface : VyralColors.secondaryBackground;
-    final items = _filteredItems();
+    final items = _filteredItems;
     final isSearching = _searchText.trim().isNotEmpty;
     final hasEmptyResults = isSearching && items.isEmpty;
 
-    return Scaffold(
+    return VyralScaffold(
       backgroundColor: pageBg,
       drawer: const VyralNavigationDrawer(),
-      body: SafeArea(
-        child: Column(
+      body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
@@ -149,7 +207,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   IconButton(
                     tooltip: 'Filters',
                     visualDensity: VisualDensity.compact,
-                    onPressed: () {},
+                    onPressed: _showFilterSheet,
                     icon: Icon(Icons.tune, size: 18, color: muted),
                   ),
                   VyralUniversalActions(),
@@ -176,7 +234,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     Expanded(
                       child: TextField(
                         controller: _searchController,
-                        onChanged: (v) => setState(() => _searchText = v),
+                        onChanged: (v) {
+                          setState(() => _searchText = v);
+                          _load();
+                        },
                         style: VyralTypography.inter(fontSize: 14, color: heading),
                         decoration: InputDecoration.collapsed(
                           hintText: 'Search posts, people, tags...',
@@ -213,7 +274,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   return Padding(
                     padding: EdgeInsets.only(right: index < _categories.length - 1 ? 8 : 0),
                     child: GestureDetector(
-                      onTap: () => setState(() => _selectedCategory = cat),
+                      onTap: () {
+                        setState(() => _selectedCategory = cat);
+                        _load();
+                      },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         curve: Curves.easeOut,
@@ -242,46 +306,40 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
             const SizedBox(height: 16),
             Expanded(
-              child: hasEmptyResults
-                  ? _EmptyResultsState(
-                      muted: muted,
-                      heading: heading,
-                      onClear: () {
-                        _searchController.clear();
-                        setState(() => _searchText = '');
-                      },
-                      isDark: isDark,
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (isSearching)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Text(
-                                '${items.length} results found'.toUpperCase(),
-                                style: VyralTypography.inter(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: muted,
-                                  letterSpacing: 0.6,
-                                ),
-                              ),
-                            ),
-                          Expanded(
-                            child: MasonryGridView.count(
-                              crossAxisCount: 2,
-                              mainAxisSpacing: 12,
-                              crossAxisSpacing: 12,
-                              itemCount: items.length,
-                              itemBuilder: (context, index) => GridPostCard(item: items[index]),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : hasEmptyResults
+                      ? VyralRefreshScrollView(
+                          onRefresh: _load,
+                          child: _EmptyResultsState(
+                            muted: muted,
+                            heading: heading,
+                            onClear: () {
+                              _searchController.clear();
+                              setState(() => _searchText = '');
+                              _load();
+                            },
+                            isDark: isDark,
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _load,
+                          child: MasonryGridView.count(
+                            physics: vyralRefreshScrollPhysics,
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                            crossAxisCount:
+                                SettingsPreferences.instance.exploreGridCompact
+                                    ? 3
+                                    : 2,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                            itemCount: items.length,
+                            itemBuilder: (context, index) => GridPostCard(
+                              item: items[index],
+                              onTap: () => _openPost(index),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
             ),
             VyralBottomNav(
               currentIndex: 1,
@@ -289,7 +347,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 }

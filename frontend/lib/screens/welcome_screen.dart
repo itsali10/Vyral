@@ -40,19 +40,7 @@ class WelcomeScreen extends StatelessWidget {
                     children: [
                       VyralOpenNavMenuButton(color: logoColor),
                       const Spacer(),
-                      VyralUniversalActions(
-                        trailing: [
-                          IconButton(
-                            tooltip: 'Skip to home',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => Navigator.pushNamed(context, '/home'),
-                            icon: Icon(
-                              Icons.double_arrow_rounded,
-                              color: isDark ? VyralColors.white : VyralColors.primaryText,
-                            ),
-                          ),
-                        ],
-                      ),
+                      const VyralUniversalActions(),
                     ],
                   ),
                 ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/auth_service.dart';
 import '../theme/theme_scope.dart';
 import '../theme/vyral_theme.dart';
 
@@ -32,7 +33,9 @@ abstract final class VyralShellNav {
       return;
     }
 
-    if (name != null && _mainShellRoutes.contains(name)) {
+    if (name != null &&
+        _mainShellRoutes.contains(name) &&
+        AuthService.instance.isLoggedIn) {
       final i = _mainShellRoutes.indexOf(name);
       final next = _mainShellRoutes[_mod(i + delta, _mainShellRoutes.length)];
       nav.pushReplacementNamed(next);
@@ -55,16 +58,20 @@ abstract final class VyralShellNav {
     if (name == _collectionDetailName) {
       if (delta < 0) {
         nav.pop();
-      } else {
+      } else if (AuthService.instance.isLoggedIn) {
         nav.pushReplacementNamed('/home');
+      } else {
+        nav.pushReplacementNamed('/');
       }
       return;
     }
 
     if (delta < 0 && nav.canPop()) {
       nav.pop();
-    } else {
+    } else if (AuthService.instance.isLoggedIn) {
       nav.pushReplacementNamed('/home');
+    } else {
+      nav.pushReplacementNamed('/');
     }
   }
 }

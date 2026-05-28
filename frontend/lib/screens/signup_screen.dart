@@ -1,6 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/api_client.dart';
+import '../services/auth_service.dart';
+import '../utils/api_error_messages.dart';
 import '../theme/vyral_typography.dart';
 
 import '../theme/vyral_theme.dart';
@@ -29,14 +32,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   void initState() {
     super.initState();
-    _termsTap = TapGestureRecognizer()..onTap = () => _showStub('Terms');
-    _privacyTap = TapGestureRecognizer()..onTap = () => _showStub('Privacy Policy');
+    _termsTap = TapGestureRecognizer()..onTap = _openTerms;
+    _privacyTap = TapGestureRecognizer()..onTap = _openPrivacy;
   }
 
-  void _showStub(String title) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$title — link placeholder')),
-    );
+  Future<void> _openTerms() async {
+    final uri = Uri.parse('https://vyral.app/terms');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open terms')),
+      );
+    }
+  }
+
+  Future<void> _openPrivacy() async {
+    final uri = Uri.parse('https://vyral.app/privacy');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open privacy policy')),
+      );
+    }
   }
 
   @override
@@ -81,22 +96,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     setState(() => _submitting = true);
     try {
-      final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      await AuthService.instance.register(
+        fullName: _fullNameController.text.trim(),
+        username: _usernameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
-      await credential.user?.updateDisplayName(_fullNameController.text.trim());
       if (!mounted) return;
       await Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-    } on FirebaseAuthException catch (e) {
+    } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'Could not create account')),
+        SnackBar(
+          content: Text(friendlyApiMessage(e, authContext: true)),
+          duration: const Duration(seconds: 4),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sign up failed: $e')),
+        const SnackBar(content: Text('Sign up failed. Check your connection.')),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -138,19 +157,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     children: [
                       VyralOpenNavMenuButton(color: heading),
                       const Spacer(),
-                      VyralUniversalActions(
-                        trailing: [
-                          IconButton(
-                            tooltip: 'Skip to home',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => Navigator.of(context).pushNamed('/home'),
-                            icon: Icon(
-                              Icons.home_outlined,
-                              color: isDark ? VyralColors.softPink : VyralColors.primaryRose,
-                            ),
-                          ),
-                        ],
-                      ),
+                      const VyralUniversalActions(),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -182,13 +189,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  _AvatarPrompt(
-                    textColor: bodyText,
-                    borderColor: inputBorder,
-                    accentColor: isDark ? VyralColors.softPink : VyralColors.primaryRose,
-                    bgColor: inputBg,
-                  ),
-                  const SizedBox(height: 18),
                   _LabeledInput(
                     label: 'Full Name',
                     hint: 'Full Name',
@@ -261,7 +261,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   SizedBox(
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: _submitting ? null : _onCreateAccount,
+                      onPressed: _submitting || !_canSubmit ? null : _onCreateAccount,
                       style: ElevatedButton.styleFrom(
                         elevation: 0,
                         backgroundColor: _canSubmit ? buttonEnabledBg : buttonDisabledBg,
@@ -301,91 +301,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(child: Divider(color: divider, thickness: 1)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          'or',
-                          style: VyralTypography.inter(
-                            fontSize: 12,
-                            color: bodyText,
-                          ),
-                        ),
-                      ),
-                      Expanded(child: Divider(color: divider, thickness: 1)),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 52,
-                    child: OutlinedButton(
-                      onPressed: () {},
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: heading,
-                        side: BorderSide(color: inputBorder),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(26),
-                        ),
-                        backgroundColor: isDark ? panelBg : VyralColors.cardBackground,
-                      ),
-                      child: Text(
-                        'G   Continue with Google',
-                        style: VyralTypography.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: heading,
-                        ),
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 24),
-                  Text.rich(
-                    textAlign: TextAlign.center,
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'By signing up, you agree to our ',
-                          style: VyralTypography.inter(
-                            fontSize: 12,
-                            color: bodyText,
-                            height: 1.4,
-                          ),
-                        ),
-                        TextSpan(
-                          text: 'Terms',
-                          style: VyralTypography.inter(
-                            fontSize: 12,
-                            color: isDark ? VyralColors.softPink : VyralColors.primaryRose,
-                            height: 1.4,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          recognizer: _termsTap,
-                        ),
-                        TextSpan(
-                          text: ' & ',
-                          style: VyralTypography.inter(
-                            fontSize: 12,
-                            color: bodyText,
-                            height: 1.4,
-                          ),
-                        ),
-                        TextSpan(
-                          text: 'Privacy Policy',
-                          style: VyralTypography.inter(
-                            fontSize: 12,
-                            color: isDark ? VyralColors.softPink : VyralColors.primaryRose,
-                            height: 1.4,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          recognizer: _privacyTap,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -416,60 +332,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _AvatarPrompt extends StatelessWidget {
-  const _AvatarPrompt({
-    required this.textColor,
-    required this.borderColor,
-    required this.accentColor,
-    required this.bgColor,
-  });
-
-  final Color textColor;
-  final Color borderColor;
-  final Color accentColor;
-  final Color bgColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: 88,
-              height: 88,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: bgColor,
-                border: Border.all(color: borderColor),
-              ),
-            ),
-            Positioned(
-              right: -2,
-              bottom: -2,
-              child: Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.add, color: Colors.white, size: 15),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'Add profile photo',
-          style: VyralTypography.inter(color: textColor, fontSize: 14),
-        ),
-      ],
     );
   }
 }

@@ -1,13 +1,15 @@
-import 'dart:io';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import '../theme/vyral_typography.dart';
-import 'package:image_picker/image_picker.dart';
 
+import '../models/picked_media.dart';
+import '../services/api_client.dart';
+import '../services/media_picker_service.dart';
 import '../services/post_creation_service.dart';
+import '../utils/api_error_messages.dart';
 import '../theme/vyral_theme.dart';
+import '../widgets/picked_image_preview.dart';
 import '../widgets/vyral_navigation_drawer.dart';
+import '../widgets/vyral_scaffold.dart';
 import '../widgets/vyral_universal_actions.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -19,9 +21,14 @@ class CreatePostScreen extends StatefulWidget {
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
   final _captionController = TextEditingController();
-  File? _selectedImage;
-  final _picker = ImagePicker();
+  PickedMedia? _selectedImage;
   bool _isPosting = false;
+  bool _isPickingImage = false;
+  String? _location;
+  final List<String> _hashtags = [];
+  String? _moodLabel;
+
+  bool get _picksFromComputer => MediaPickerService.picksFromComputer;
 
   @override
   void dispose() {
@@ -30,33 +37,114 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickImage() async {
-    final x = await _picker.pickImage(source: ImageSource.gallery);
-    if (!mounted) return;
-    if (x != null) {
-      setState(() => _selectedImage = File(x.path));
+    if (_isPickingImage || _isPosting) return;
+    setState(() => _isPickingImage = true);
+    try {
+      final picked = await MediaPickerService.instance.pickImage();
+      if (!mounted) return;
+      if (picked != null) {
+        setState(() => _selectedImage = picked);
+      }
+    } finally {
+      if (mounted) setState(() => _isPickingImage = false);
     }
   }
 
-  void _addLocation() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Location coming soon')),
+  Future<void> _addLocation() async {
+    final controller = TextEditingController(text: _location ?? '');
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add location'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'City, country'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
     );
+    controller.dispose();
+    if (value != null && value.isNotEmpty && mounted) {
+      setState(() => _location = value);
+    }
   }
 
-  void _addTag() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Tags coming soon')),
+  Future<void> _addTag() async {
+    final controller = TextEditingController(
+      text: _hashtags.map((t) => '#$t').join(' '),
     );
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add tags'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: '#sunset #vibes or sunset, vibes',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value != null && mounted) {
+      final tags = value
+          .split(RegExp(r'[,\s]+'))
+          .map((t) => t.replaceAll('#', '').trim())
+          .where((t) => t.isNotEmpty)
+          .toList();
+      setState(() {
+        _hashtags
+          ..clear()
+          ..addAll(tags);
+      });
+    }
   }
 
-  void _addMood() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Mood coming soon')),
+  Future<void> _addMood() async {
+    const moods = ['✨ Inspired', '🔥 Hyped', '😌 Chill', '💪 Motivated', '😂 Funny'];
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: moods
+              .map(
+                (m) => ListTile(
+                  title: Text(m),
+                  onTap: () => Navigator.pop(ctx, m),
+                ),
+              )
+              .toList(),
+        ),
+      ),
     );
+    if (picked != null && mounted) setState(() => _moodLabel = picked);
   }
 
   Future<void> _submitPost() async {
-    final caption = _captionController.text.trim();
+    var caption = _captionController.text.trim();
+    if (_moodLabel != null && _moodLabel!.isNotEmpty) {
+      caption = caption.isEmpty ? _moodLabel! : '${_moodLabel!} $caption';
+    }
     if (caption.isEmpty && _selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Add a caption or a photo to post.')),
@@ -68,6 +156,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       await PostCreationService.instance.submitPost(
         caption: caption,
         image: _selectedImage,
+        hashtags: _hashtags.isEmpty ? null : _hashtags,
+        location: _location,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -76,8 +166,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
+      final msg = e is ApiException
+          ? friendlyApiMessage(e)
+          : 'Could not create post. Try again.';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not create post: $e')),
+        SnackBar(content: Text(msg)),
       );
     } finally {
       if (mounted) setState(() => _isPosting = false);
@@ -97,7 +190,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     final toolbarBorder = isDark ? Colors.transparent : VyralColors.border;
     final maxCaptionLength = 280;
 
-    return Scaffold(
+    return VyralScaffold(
       backgroundColor: pageBg,
       drawer: const VyralNavigationDrawer(),
       appBar: AppBar(
@@ -154,8 +247,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
+      body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Divider(
@@ -205,87 +297,24 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                               fontSize: 16,
                               color: inputText,
                             ),
-                            onChanged: (_) => setState(() {}),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 20),
-                    GestureDetector(
-                      onTap: _pickImage,
-                      child: Stack(
-                        children: [
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeOut,
-                            width: double.infinity,
-                            height: _selectedImage == null ? 200 : 250,
-                            decoration: BoxDecoration(
-                              color: card,
-                              borderRadius: BorderRadius.all(Radius.circular(18)),
-                            ),
-                            child: _selectedImage != null
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(18),
-                                    child: Image.file(
-                                      _selectedImage!,
-                                      fit: BoxFit.cover,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                    ),
-                                  )
-                                : Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.photo_camera_outlined,
-                                        size: 32,
-                                        color: isDark
-                                            ? VyralColors.mutedText
-                                            : VyralColors.secondaryText,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Add photo or video',
-                                        style: VyralTypography.inter(
-                                          fontSize: 14,
-                                          color: isDark
-                                              ? VyralColors.mutedText
-                                              : VyralColors.secondaryText,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                          if (_selectedImage != null)
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: GestureDetector(
-                                onTap: () => setState(() => _selectedImage = null),
-                                child: Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.35),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.close, size: 14, color: Colors.white),
-                                ),
-                              ),
-                            ),
-                          Positioned.fill(
-                            child: IgnorePointer(
-                              child: CustomPaint(
-                                painter: DashedRoundedRectPainter(
-                                  color: divider,
-                                  borderRadius: 18,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    _PostImageSlot(
+                      selectedImage: _selectedImage,
+                      isPickingImage: _isPickingImage,
+                      cardColor: card,
+                      dividerColor: divider,
+                      mutedColor: isDark
+                          ? VyralColors.mutedText
+                          : VyralColors.secondaryText,
+                      placeholder: _picksFromComputer
+                          ? 'Choose image from your computer'
+                          : 'Add photo or video',
+                      onPick: _pickImage,
+                      onClear: () => setState(() => _selectedImage = null),
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -307,7 +336,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       child: _ToolButton(
                         icon: Icons.photo_outlined,
                         label: 'Photo',
-                        onTap: _pickImage,
+                        onTap: _isPickingImage ? null : _pickImage,
                       ),
                     ),
                   ),
@@ -355,17 +384,120 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ),
                   ),
                   const Spacer(),
-                  Text(
-                    '${_captionController.text.length}/$maxCaptionLength',
-                    style: VyralTypography.inter(
-                      fontSize: 12,
-                      color: muted,
-                    ),
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _captionController,
+                    builder: (context, value, _) {
+                      return Text(
+                        '${value.text.length}/$maxCaptionLength',
+                        style: VyralTypography.inter(
+                          fontSize: 12,
+                          color: muted,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
             ),
           ],
+        ),
+    );
+  }
+}
+
+class _PostImageSlot extends StatelessWidget {
+  const _PostImageSlot({
+    required this.selectedImage,
+    required this.isPickingImage,
+    required this.cardColor,
+    required this.dividerColor,
+    required this.mutedColor,
+    required this.placeholder,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  final PickedMedia? selectedImage;
+  final bool isPickingImage;
+  final Color cardColor;
+  final Color dividerColor;
+  final Color mutedColor;
+  final String placeholder;
+  final VoidCallback onPick;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = selectedImage != null;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isPickingImage ? null : onPick,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          width: double.infinity,
+          height: hasImage ? 250 : 200,
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: dividerColor),
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (hasImage)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: PickedImagePreview(
+                    media: selectedImage!,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              else
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (isPickingImage)
+                      const SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      Icon(
+                        Icons.photo_camera_outlined,
+                        size: 32,
+                        color: mutedColor,
+                      ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isPickingImage ? 'Opening gallery…' : placeholder,
+                      style: VyralTypography.inter(
+                        fontSize: 14,
+                        color: mutedColor,
+                      ),
+                    ),
+                  ],
+                ),
+              if (hasImage)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: IconButton(
+                    visualDensity: VisualDensity.compact,
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black.withValues(alpha: 0.35),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(24, 24),
+                      padding: EdgeInsets.zero,
+                    ),
+                    iconSize: 14,
+                    onPressed: onClear,
+                    icon: const Icon(Icons.close),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -381,7 +513,7 @@ class _ToolButton extends StatelessWidget {
 
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -412,52 +544,5 @@ class _ToolButton extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class DashedRoundedRectPainter extends CustomPainter {
-  DashedRoundedRectPainter({
-    required this.color,
-    required this.borderRadius,
-    this.strokeWidth = 1,
-    this.dashLength = 5,
-    this.gapLength = 4,
-  });
-
-  final Color color;
-  final double borderRadius;
-  final double strokeWidth;
-  final double dashLength;
-  final double gapLength;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = (Offset.zero & size).deflate(strokeWidth / 2);
-    final rrect = RRect.fromRectAndRadius(
-      rect,
-      Radius.circular(max(0, borderRadius - strokeWidth / 2)),
-    );
-    final path = Path()..addRRect(rrect);
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-    for (final metric in path.computeMetrics()) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        final next = min(distance + dashLength, metric.length);
-        canvas.drawPath(metric.extractPath(distance, next), paint);
-        distance = next + gapLength;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant DashedRoundedRectPainter oldDelegate) {
-    return oldDelegate.color != color ||
-        oldDelegate.borderRadius != borderRadius ||
-        oldDelegate.strokeWidth != strokeWidth ||
-        oldDelegate.dashLength != dashLength ||
-        oldDelegate.gapLength != gapLength;
   }
 }
