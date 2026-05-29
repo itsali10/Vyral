@@ -19,6 +19,23 @@ npm run start:dev
 
 Server listens on **port 3000** (override with `PORT`).
 
+## Deploying to Vercel
+
+Deploy the `backend/` folder as its own Vercel project. The serverless entry is
+`api/index.ts`, and `vercel.json` rewrites every route to that Nest handler, so
+`/auth/register`, `/docs`, and the other API routes keep the same URLs.
+
+Add these Environment Variables in Vercel before testing endpoints:
+
+- `DATABASE_URL`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `API_PUBLIC_URL` set to your deployed backend URL, for example `https://vyral-backend.vercel.app`
+
+Do not rely on `backend/.env` in production; Vercel does not read local `.env`
+files from your machine after deployment.
+
 ## Main endpoints
 
 | Area    | Routes                                                                             |
