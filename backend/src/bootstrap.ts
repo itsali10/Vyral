@@ -9,7 +9,11 @@ import { validationExceptionFactory } from './common/pipes/validation-exception.
 
 export async function createNestApp() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  configureNestApp(app);
+  return app;
+}
 
+export function configureNestApp(app: NestExpressApplication) {
   app.useGlobalFilters(new DetailedExceptionFilter());
   app.useGlobalPipes(
     new ValidationPipe({
@@ -37,6 +41,4 @@ export async function createNestApp() {
   SwaggerModule.setup('docs', app, document, {
     swaggerOptions: { persistAuthorization: true },
   });
-
-  return app;
 }
