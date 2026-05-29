@@ -25,7 +25,9 @@ export function configureNestApp(app: NestExpressApplication) {
   );
 
   app.enableCors();
-  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
+  if (!process.env.VERCEL) {
+    app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
+  }
 
   const config = new DocumentBuilder()
     .setTitle('Vyral API')
