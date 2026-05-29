@@ -21,9 +21,9 @@ Server listens on **port 3000** (override with `PORT`).
 
 ## Deploying to Vercel
 
-Deploy the `backend/` folder as its own Vercel project. The serverless entry is
-`api/index.ts`, and `vercel.json` rewrites every route to that Nest handler, so
-`/auth/register`, `/docs`, and the other API routes keep the same URLs.
+Deploy the `backend/` folder as its own Vercel project. Vercel detects the
+NestJS entrypoint at `src/main.ts`, so `/auth/register`, `/docs`, and the other
+API routes keep the same URLs.
 
 Add these Environment Variables in Vercel before testing endpoints:
 
