@@ -9,6 +9,7 @@ import { SavedPost } from '../entities/saved-post.entity';
 import { SavedCollection } from '../entities/saved-collection.entity';
 import { Follow } from '../entities/follow.entity';
 import { PostLike } from '../entities/post-like.entity';
+import { Comment } from '../entities/comment.entity';
 import { UserSettings } from '../entities/user-settings.entity';
 import { UserBlock } from '../entities/user-block.entity';
 import { SupabaseModule } from '../supabase/supabase.module';
@@ -23,6 +24,7 @@ import { SupabaseModule } from '../supabase/supabase.module';
       SavedCollection,
       Follow,
       PostLike,
+      Comment,
       UserSettings,
       UserBlock,
     ]),

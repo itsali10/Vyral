@@ -45,7 +45,7 @@ class PostsApiService {
         .toList();
   }
 
-  Future<FeedPost> createPost({
+  Future<void> createPost({
     required String caption,
     PickedMedia? image,
     List<String>? hashtags,
@@ -54,21 +54,30 @@ class PostsApiService {
     String? mediaUrl;
     if (image != null) {
       mediaUrl = await ApiClient.instance.uploadMedia(image);
+      if (mediaUrl.isEmpty) {
+        throw ApiException('Image upload failed');
+      }
     }
+
+    final hasCaption = caption.trim().isNotEmpty;
+    if (!hasCaption && mediaUrl == null) {
+      throw ApiException('Add a caption or a photo');
+    }
+
     final type = mediaUrl != null
         ? 'IMAGE'
-        : (caption.isNotEmpty ? 'TEXT' : 'IMAGE');
-    final data = await ApiClient.instance.post(
+        : 'TEXT';
+
+    await ApiClient.instance.post(
       '/posts',
       body: {
         'type': type,
-        if (caption.isNotEmpty) 'caption': caption,
+        if (hasCaption) 'caption': caption.trim(),
         if (mediaUrl != null) 'mediaUrls': [mediaUrl],
         if (hashtags != null && hashtags.isNotEmpty) 'hashtags': hashtags,
-        if (location != null) 'location': location,
+        if (location != null && location.isNotEmpty) 'location': location,
       },
     );
-    return FeedPost.fromJson(data);
   }
 
   FeedPost _parsePost(Map<String, dynamic> data, FeedPost fallback) {
@@ -86,12 +95,19 @@ class PostsApiService {
     return _parsePost(data, post);
   }
 
-  Future<List<PostComment>> getComments(String postId) async {
+  Future<({List<PostComment> items, int total})> getComments(
+    String postId,
+  ) async {
     final data = await ApiClient.instance.get('/posts/$postId/comments');
-    final items = data['items'] as List<dynamic>? ?? [];
-    return items
-        .map((e) => PostComment.fromJson(e as Map<String, dynamic>))
-        .toList();
+    final rawItems = data['items'];
+    final list = rawItems is List ? rawItems : <dynamic>[];
+    final comments = <PostComment>[];
+    for (final raw in list) {
+      if (raw is! Map) continue;
+      comments.add(PostComment.fromJson(Map<String, dynamic>.from(raw)));
+    }
+    final total = (data['total'] as num?)?.toInt() ?? comments.length;
+    return (items: comments, total: total);
   }
 
   Future<FeedPost> addComment(FeedPost post, String text) async {
@@ -109,6 +125,7 @@ class PostsApiService {
 
   Future<FeedPost> updatePost(
     String id, {
+    required FeedPost fallback,
     String? caption,
     String? location,
     List<String>? hashtags,
@@ -118,11 +135,24 @@ class PostsApiService {
     if (location != null) body['location'] = location;
     if (hashtags != null) body['hashtags'] = hashtags;
     final data = await ApiClient.instance.patch('/posts/$id', body: body);
-    return FeedPost.fromJson(data);
+    return _parsePost(data, fallback);
   }
 
   Future<void> deletePost(String id) async {
     await ApiClient.instance.delete('/posts/$id');
+  }
+
+  Future<FeedPost> setPinned(
+    FeedPost post, {
+    required bool pinned,
+  }) async {
+    final Map<String, dynamic> data;
+    if (pinned) {
+      data = await ApiClient.instance.post('/posts/${post.id}/pin');
+    } else {
+      data = await ApiClient.instance.delete('/posts/${post.id}/pin');
+    }
+    return _parsePost(data, post);
   }
 
   Future<FeedPost> setSaved(

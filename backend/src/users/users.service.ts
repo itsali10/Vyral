@@ -16,6 +16,7 @@ import { SavedPost } from '../entities/saved-post.entity';
 import { SavedCollection } from '../entities/saved-collection.entity';
 import { Follow } from '../entities/follow.entity';
 import { PostLike } from '../entities/post-like.entity';
+import { Comment } from '../entities/comment.entity';
 import { FollowStatus } from '../entities/enums';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
@@ -41,6 +42,8 @@ export class UsersService {
     private readonly followRepo: Repository<Follow>,
     @InjectRepository(PostLike)
     private readonly likeRepo: Repository<PostLike>,
+    @InjectRepository(Comment)
+    private readonly commentRepo: Repository<Comment>,
     @InjectRepository(UserSettings)
     private readonly settingsRepo: Repository<UserSettings>,
     @InjectRepository(UserBlock)
@@ -264,13 +267,15 @@ export class UsersService {
     limit = 12,
   ) {
     await this.assertUserExists(targetId);
-    const posts = await this.postRepo.find({
-      where: { authorId: targetId },
-      relations: { author: true },
-      order: { createdAt: 'DESC' },
-      take: limit,
-      skip: (page - 1) * limit,
-    });
+    const posts = await this.postRepo
+      .createQueryBuilder('post')
+      .leftJoinAndSelect('post.author', 'author')
+      .where('post.authorId = :targetId', { targetId })
+      .orderBy('post.pinnedAt', 'DESC', 'NULLS LAST')
+      .addOrderBy('post.createdAt', 'DESC')
+      .take(limit)
+      .skip((page - 1) * limit)
+      .getMany();
     return this.mapPostsForViewer(posts, requesterId);
   }
 
@@ -427,6 +432,21 @@ export class UsersService {
     );
     const likedSet = new Set(likes.map((l) => l.postId));
     const savedSet = new Set(saves.map((s) => s.postId));
+    const commentRows = await this.commentRepo
+      .createQueryBuilder('c')
+      .select('c.postId', 'postId')
+      .addSelect('COUNT(c.id)', 'cnt')
+      .where('c.postId IN (:...ids)', { ids })
+      .groupBy('c.postId')
+      .getRawMany();
+    const commentCountByPost = new Map<string, number>();
+    for (const row of commentRows) {
+      const postId = (row.postId ?? row.postid ?? row.c_postId) as
+        | string
+        | undefined;
+      const cnt = Number(row.cnt ?? row.count ?? 0);
+      if (postId) commentCountByPost.set(postId, cnt);
+    }
     return posts.map((post) => {
       const authorPrefs = settingsByAuthor.get(post.authorId);
       const showLikesCount =
@@ -436,6 +456,7 @@ export class UsersService {
         isLiked: likedSet.has(post.id),
         isSaved: savedSet.has(post.id),
         showLikesCount,
+        commentsCount: commentCountByPost.get(post.id) ?? 0,
       });
     });
   }

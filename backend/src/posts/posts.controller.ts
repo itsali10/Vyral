@@ -69,6 +69,18 @@ export class PostsController {
     return this.postsService.remove(id, user.id);
   }
 
+  @Post(':id/pin')
+  @ApiOperation({ summary: 'Pin post to top of profile (owner only)' })
+  pin(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+    return this.postsService.pin(id, user.id);
+  }
+
+  @Delete(':id/pin')
+  @ApiOperation({ summary: 'Unpin post from profile (owner only)' })
+  unpin(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+    return this.postsService.unpin(id, user.id);
+  }
+
   @Post(':id/like')
   @ApiOperation({ summary: 'Like a post' })
   like(@Param('id') id: string, @CurrentUser() user: { id: string }) {

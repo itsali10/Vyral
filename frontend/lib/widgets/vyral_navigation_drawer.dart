@@ -52,7 +52,7 @@ class VyralNavigationDrawer extends StatelessWidget {
     _NavItem(route: '/explore', title: 'Explore', subtitle: 'Discover posts', icon: Icons.grid_view_outlined),
     _NavItem(route: '/create', title: 'Create', subtitle: 'New post', icon: Icons.add_circle_outline, push: true),
     _NavItem(route: '/saved', title: 'Saved', subtitle: 'Collections', icon: Icons.bookmark_outline),
-    _NavItem(route: '/profile', title: 'Profile', subtitle: 'Your pins & posts', icon: Icons.person_outline),
+    _NavItem(route: '/profile', title: 'Profile', subtitle: 'Your posts', icon: Icons.person_outline),
     _NavItem(route: '/settings', title: 'Settings', subtitle: 'Theme & privacy', icon: Icons.settings_outlined),
   ];
 

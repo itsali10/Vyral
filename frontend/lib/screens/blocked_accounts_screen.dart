@@ -9,13 +9,16 @@ import '../theme/vyral_theme.dart';
 import '../widgets/vyral_scaffold.dart';
 
 class BlockedAccountsScreen extends StatefulWidget {
-  const BlockedAccountsScreen({super.key});
+  const BlockedAccountsScreen({super.key, this.autofocusSearch = false});
+
+  final bool autofocusSearch;
 
   @override
   State<BlockedAccountsScreen> createState() => _BlockedAccountsScreenState();
 }
 
 class _BlockedAccountsScreenState extends State<BlockedAccountsScreen> {
+  final _searchFocus = FocusNode();
   final _searchController = TextEditingController();
   List<BlockedUserSummary> _blocked = [];
   List<BlockedUserSummary> _searchResults = [];
@@ -26,13 +29,21 @@ class _BlockedAccountsScreenState extends State<BlockedAccountsScreen> {
   void initState() {
     super.initState();
     _load();
+    if (widget.autofocusSearch) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _searchFocus.requestFocus();
+      });
+    }
   }
 
   @override
   void dispose() {
+    _searchFocus.dispose();
     _searchController.dispose();
     super.dispose();
   }
+
+  Set<String> get _blockedIds => _blocked.map((u) => u.id).toSet();
 
   Future<void> _load() async {
     setState(() => _loading = true);
@@ -66,7 +77,8 @@ class _BlockedAccountsScreenState extends State<BlockedAccountsScreen> {
       final items = await SettingsApiService.instance.searchUsers(q.trim());
       if (!mounted) return;
       setState(() {
-        _searchResults = items;
+        _searchResults =
+            items.where((u) => !_blockedIds.contains(u.id)).toList();
         _searching = false;
       });
     } catch (e) {
@@ -94,6 +106,10 @@ class _BlockedAccountsScreenState extends State<BlockedAccountsScreen> {
     try {
       await SettingsApiService.instance.unblockUser(userId);
       await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User unblocked')),
+      );
     } on ApiException catch (e) {
       _error(friendlyApiMessage(e));
     }
@@ -110,10 +126,27 @@ class _BlockedAccountsScreenState extends State<BlockedAccountsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                Text(
+                  'Block account',
+                  style: VyralTypography.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Search for a user to block. They will not appear in your feed.',
+                  style: VyralTypography.inter(
+                    fontSize: 13,
+                    color: VyralColors.secondaryText,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: _searchController,
+                  focusNode: _searchFocus,
                   decoration: InputDecoration(
-                    hintText: 'Search by username to block',
+                    hintText: 'Search by username',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _searching
                         ? const Padding(
@@ -131,7 +164,10 @@ class _BlockedAccountsScreenState extends State<BlockedAccountsScreen> {
                 ),
                 if (_searchResults.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Text('Results', style: VyralTypography.inter(fontWeight: FontWeight.w600)),
+                  Text(
+                    'Search results',
+                    style: VyralTypography.inter(fontWeight: FontWeight.w600),
+                  ),
                   ..._searchResults.map(
                     (u) => ListTile(
                       title: Text(u.fullName),
@@ -143,24 +179,37 @@ class _BlockedAccountsScreenState extends State<BlockedAccountsScreen> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 Text(
-                  _blocked.isEmpty ? 'No blocked accounts' : 'Blocked',
+                  'Blocked accounts',
                   style: VyralTypography.inter(
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: VyralColors.secondaryText,
                   ),
                 ),
-                ..._blocked.map(
-                  (u) => ListTile(
-                    title: Text(u.fullName),
-                    subtitle: Text(u.displayUsername),
-                    trailing: TextButton(
-                      onPressed: () => _unblock(u.id),
-                      child: const Text('Unblock'),
+                const SizedBox(height: 4),
+                if (_blocked.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      'No blocked accounts yet.',
+                      style: VyralTypography.inter(
+                        fontSize: 13,
+                        color: VyralColors.secondaryText,
+                      ),
+                    ),
+                  )
+                else
+                  ..._blocked.map(
+                    (u) => ListTile(
+                      title: Text(u.fullName),
+                      subtitle: Text(u.displayUsername),
+                      trailing: TextButton(
+                        onPressed: () => _unblock(u.id),
+                        child: const Text('Unblock'),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
     );

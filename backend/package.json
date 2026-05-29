@@ -22,7 +22,10 @@
     "migration:generate": "npm run typeorm migration:generate",
     "migration:run": "npm run typeorm migration:run",
     "migration:revert": "npm run typeorm migration:revert",
-    "db:ensure-settings": "ts-node -r tsconfig-paths/register scripts/ensure-settings-tables.ts"
+    "db:ensure-settings": "ts-node -r tsconfig-paths/register scripts/ensure-settings-tables.ts",
+    "db:seed": "ts-node -r tsconfig-paths/register scripts/seed-feed-data.ts",
+    "db:seed:force": "ts-node -r tsconfig-paths/register scripts/seed-feed-data.ts --force",
+    "db:repair-comments": "ts-node -r tsconfig-paths/register scripts/repair-comments.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

@@ -1,4 +1,4 @@
-import 'dart:io';
+import '../utils/media_url.dart';
 
 class FeedPost {
   const FeedPost({
@@ -15,6 +15,7 @@ class FeedPost {
     required this.isLiked,
     required this.isSaved,
     this.showLikesCount = true,
+    this.isPinned = false,
   });
 
   final String id;
@@ -33,6 +34,7 @@ class FeedPost {
   final bool isLiked;
   final bool isSaved;
   final bool showLikesCount;
+  final bool isPinned;
 
   FeedPost copyWith({
     String? authorId,
@@ -47,6 +49,7 @@ class FeedPost {
     bool? isLiked,
     bool? isSaved,
     bool? showLikesCount,
+    bool? isPinned,
   }) {
     return FeedPost(
       id: id,
@@ -62,6 +65,7 @@ class FeedPost {
       isLiked: isLiked ?? this.isLiked,
       isSaved: isSaved ?? this.isSaved,
       showLikesCount: showLikesCount ?? this.showLikesCount,
+      isPinned: isPinned ?? this.isPinned,
     );
   }
 
@@ -69,7 +73,7 @@ class FeedPost {
     return FeedPost(
       id: _string(json['id']),
       authorId: _optionalString(json['authorId']),
-      authorAvatarUrl: _resolveMediaUrl(_optionalString(json['authorAvatarUrl'])),
+      authorAvatarUrl: resolveMediaUrl(_optionalString(json['authorAvatarUrl'])),
       username: _string(json['username'], fallback: '@unknown'),
       timeAgo: _string(json['timeAgo']),
       hasImage: json['hasImage'] as bool? ?? false,
@@ -80,6 +84,7 @@ class FeedPost {
       isLiked: json['isLiked'] as bool? ?? false,
       isSaved: json['isSaved'] as bool? ?? false,
       showLikesCount: json['showLikesCount'] as bool? ?? true,
+      isPinned: json['isPinned'] as bool? ?? false,
     );
   }
 
@@ -90,6 +95,7 @@ class FeedPost {
       authorAvatarUrl: authorAvatarUrl ?? previous.authorAvatarUrl,
       username: username != '@unknown' ? username : previous.username,
       timeAgo: timeAgo.isNotEmpty ? timeAgo : previous.timeAgo,
+      isPinned: isPinned,
     );
   }
 
@@ -111,23 +117,12 @@ class FeedPost {
     final urls = <String>[];
     for (final e in raw) {
       if (e == null) continue;
-      final resolved = _resolveMediaUrl(e.toString());
+      final resolved = resolveMediaUrl(e.toString());
       if (resolved != null && resolved.isNotEmpty) {
         urls.add(resolved);
       }
     }
     return urls;
-  }
-
-  static String? _resolveMediaUrl(String? url) {
-    if (url == null || url.isEmpty) return null;
-    if (Platform.isAndroid &&
-        (url.contains('://localhost') || url.startsWith('http://127.0.0.1'))) {
-      return url
-          .replaceFirst('://localhost', '://10.0.2.2')
-          .replaceFirst('://127.0.0.1', '://10.0.2.2');
-    }
-    return url;
   }
 
   String get likesLabel =>
@@ -163,12 +158,16 @@ class PostComment {
   final DateTime? createdAt;
 
   factory PostComment.fromJson(Map<String, dynamic> json) {
-    final author = json['author'] as Map<String, dynamic>?;
+    final authorRaw = json['author'];
+    final author = authorRaw is Map
+        ? Map<String, dynamic>.from(authorRaw)
+        : null;
+    final rawUsername = author?['username'] ?? json['username'];
     return PostComment(
-      id: json['id'] as String,
-      text: json['text'] as String? ?? '',
-      username: author?['username'] as String? ?? '@unknown',
-      avatarUrl: author?['avatarUrl'] as String?,
+      id: json['id']?.toString() ?? '',
+      text: json['text']?.toString() ?? '',
+      username: rawUsername != null ? rawUsername.toString() : '@unknown',
+      avatarUrl: author?['avatarUrl']?.toString(),
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'].toString())
           : null,
@@ -215,7 +214,7 @@ class UserProfile {
       ),
       fullName: FeedPost._string(json['fullName']),
       bio: FeedPost._optionalString(json['bio']),
-      avatarUrl: FeedPost._resolveMediaUrl(
+      avatarUrl: resolveMediaUrl(
         FeedPost._optionalString(json['avatarUrl']),
       ),
       postsCount: (json['postsCount'] as num?)?.toInt() ?? 0,

@@ -60,6 +60,9 @@ String _friendlyAuthMessage(String raw, String lower, int? statusCode) {
     return raw.isNotEmpty ? raw : 'That information is already in use.';
   }
   if (statusCode == 400) {
+    if (lower.contains('file') || lower.contains('upload')) {
+      return raw.isNotEmpty ? raw : 'Could not upload the image. Try again.';
+    }
     return raw.isNotEmpty ? raw : 'Please check your information and try again.';
   }
 
@@ -81,6 +84,9 @@ String _friendlyGeneralMessage(String raw, String lower, int? statusCode) {
   }
   if (statusCode != null && statusCode >= 500) {
     return 'Server error. Try again in a moment.';
+  }
+  if (lower.contains('file') || lower.contains('upload') || lower.contains('image')) {
+    return raw.isNotEmpty ? raw : 'Could not upload the image. Try again.';
   }
   return raw.isNotEmpty ? raw : 'Something went wrong. Please try again.';
 }

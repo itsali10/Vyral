@@ -1,17 +1,37 @@
-# frontend
+# Vyral — Flutter client
 
-A new Flutter project.
+## Run
 
-## Getting Started
+```bash
+flutter pub get
+flutter run -d chrome
+```
 
-This project is a starting point for a Flutter application.
+With the API on the same machine:
 
-A few resources to get you started if this is your first Flutter project:
+- **Chrome / Windows**: `http://localhost:3000` (see `lib/config/api_config*.dart`)
+- **Android emulator**: `http://10.0.2.2:3000`
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Start the backend first (`../backend`, `npm run start:dev`).
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Architecture
+
+| Folder | Role |
+|--------|------|
+| `lib/screens/` | Full-page UI (feed, explore, auth, profile, settings) |
+| `lib/widgets/` | Reusable UI (`PostCard`, navigation, inputs) |
+| `lib/models/` | Data models (`FeedPost`, `SavedCollectionModel`) |
+| `lib/services/` | HTTP/API (`ApiClient`, `AuthService`, `PostsApiService`) |
+| `lib/theme/` | Colors, typography, light/dark themes |
+
+## Flutter concepts (rubric)
+
+1. **Multi-screen navigation** — `MaterialApp` named routes in `lib/main.dart` (`/home`, `/explore`, `/create`, …).  
+2. **Lists with models** — `FeedPost` lists rendered with `ListView.builder` on home and profile.  
+3. **Stateful UI** — `StatefulWidget` + `setState` for feeds, likes, forms, and theme toggle.
+
+## UI notes
+
+- Light/dark theme via `ThemeScope` / Settings  
+- Pull-to-refresh on feeds and explore  
+- `VyralResponsiveBody` centers content on wide screens (tablet/desktop)

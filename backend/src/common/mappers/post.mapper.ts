@@ -17,6 +17,7 @@ export type FeedPostView = {
   isLiked: boolean;
   isSaved: boolean;
   showLikesCount: boolean;
+  isPinned: boolean;
   createdAt: Date;
 };
 
@@ -26,6 +27,8 @@ export function toFeedPost(
     isLiked?: boolean;
     isSaved?: boolean;
     showLikesCount?: boolean;
+    /** When set, overrides stored post.commentsCount (use real DB count). */
+    commentsCount?: number;
   } = {},
 ): FeedPostView {
   const username = post.author?.username
@@ -43,11 +46,15 @@ export function toFeedPost(
     hasImage,
     caption: post.caption ?? null,
     likesCount: Math.max(0, post.likesCount),
-    commentsCount: Math.max(0, post.commentsCount),
+    commentsCount: Math.max(
+      0,
+      options.commentsCount ?? post.commentsCount,
+    ),
     mediaUrls: post.mediaUrls,
     isLiked: options.isLiked ?? false,
     isSaved: options.isSaved ?? false,
     showLikesCount: options.showLikesCount !== false,
+    isPinned: post.pinnedAt != null,
     createdAt: post.createdAt,
   };
 }

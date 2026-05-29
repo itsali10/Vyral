@@ -143,12 +143,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     label: 'Full name',
                     hint: 'Full name',
                     controller: _fullNameController,
+                    onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 16),
                   VyralInputField(
                     label: 'Username',
                     hint: 'username',
                     controller: _usernameController,
+                    onChanged: (_) => setState(() {}),
                   ),
                   if (!_usernameValid &&
                       _usernameController.text.trim().isNotEmpty)

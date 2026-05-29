@@ -50,10 +50,11 @@ class _PostCommentsSheetState extends State<_PostCommentsSheet> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final comments = await PostsApiService.instance.getComments(_post.id);
+      final result = await PostsApiService.instance.getComments(_post.id);
       if (!mounted) return;
       setState(() {
-        _comments = comments;
+        _comments = result.items;
+        _post = _post.copyWith(commentsCount: result.total);
         _loading = false;
       });
     } catch (e) {
@@ -65,9 +66,19 @@ class _PostCommentsSheetState extends State<_PostCommentsSheet> {
     }
   }
 
+  static const int _maxCommentLength = 500;
+
   Future<void> _submit() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+    if (text.length > _maxCommentLength) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Comment must be $_maxCommentLength characters or fewer.'),
+        ),
+      );
+      return;
+    }
     setState(() => _submitting = true);
     try {
       final updated = await PostsApiService.instance.addComment(_post, text);
@@ -101,116 +112,117 @@ class _PostCommentsSheetState extends State<_PostCommentsSheet> {
     final muted = isDark ? VyralColors.mutedText : VyralColors.secondaryText;
     final accent = isDark ? VyralColors.softPink : VyralColors.primaryRose;
 
+    final sheetHeight = MediaQuery.sizeOf(context).height * 0.65;
+
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.7,
-        ),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
-              child: Row(
-                children: [
-                  Text(
-                    'Comments (${_post.commentsCount})',
-                    style: VyralTypography.inter(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: heading,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context, _post),
-                    icon: Icon(Icons.close, color: muted),
-                  ),
-                ],
-              ),
-            ),
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(),
-              )
-            else if (_comments.isEmpty)
+      child: SizedBox(
+        height: sheetHeight,
+        child: Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
               Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'No comments yet. Be the first!',
-                  style: VyralTypography.inter(fontSize: 14, color: muted),
+                padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+                child: Row(
+                  children: [
+                    Text(
+                      'Comments (${_loading ? _post.commentsCount : _comments.length})',
+                      style: VyralTypography.inter(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: heading,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context, _post),
+                      icon: Icon(Icons.close, color: muted),
+                    ),
+                  ],
                 ),
-              )
-            else
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: _comments.length,
-                  itemBuilder: (context, index) {
-                    final c = _comments[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CircleAvatar(
-                            radius: 16,
-                            backgroundColor: isDark
-                                ? VyralColors.blueGray
-                                : VyralColors.secondaryBackground,
+              ),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _comments.isEmpty
+                        ? Center(
                             child: Text(
-                              c.username.replaceAll('@', '').isNotEmpty
-                                  ? c.username.replaceAll('@', '')[0].toUpperCase()
-                                  : '?',
+                              'No comments yet. Be the first!',
                               style: VyralTypography.inter(
-                                fontSize: 12,
-                                color: heading,
+                                fontSize: 14,
+                                color: muted,
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  c.username,
-                                  style: VyralTypography.inter(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: heading,
-                                  ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: _comments.length,
+                            itemBuilder: (context, index) {
+                              final c = _comments[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor: isDark
+                                          ? VyralColors.blueGray
+                                          : VyralColors.secondaryBackground,
+                                      child: Text(
+                                        c.username.replaceAll('@', '').isNotEmpty
+                                            ? c.username
+                                                .replaceAll('@', '')[0]
+                                                .toUpperCase()
+                                            : '?',
+                                        style: VyralTypography.inter(
+                                          fontSize: 12,
+                                          color: heading,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            c.username,
+                                            style: VyralTypography.inter(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: heading,
+                                            ),
+                                          ),
+                                          Text(
+                                            c.text,
+                                            style: VyralTypography.inter(
+                                              fontSize: 14,
+                                              color: heading,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  c.text,
-                                  style: VyralTypography.inter(
-                                    fontSize: 14,
-                                    color: heading,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              );
+                            },
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
               ),
-            Padding(
+              Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _controller,
+                      maxLength: _maxCommentLength,
                       decoration: InputDecoration(
                         hintText: 'Add a comment...',
                         hintStyle: VyralTypography.inter(color: muted),
@@ -246,8 +258,9 @@ class _PostCommentsSheetState extends State<_PostCommentsSheet> {
                   ),
                 ],
               ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -13,6 +13,7 @@ import '../widgets/grid_post_card.dart';
 import '../widgets/vyral_bottom_nav.dart';
 import '../widgets/vyral_navigation_drawer.dart';
 import '../widgets/vyral_refresh_scroll.dart';
+import '../widgets/vyral_responsive_body.dart';
 import '../widgets/vyral_scaffold.dart';
 import '../widgets/vyral_universal_actions.dart';
 
@@ -186,7 +187,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return VyralScaffold(
       backgroundColor: pageBg,
       drawer: const VyralNavigationDrawer(),
-      body: Column(
+      body: VyralResponsiveBody(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
@@ -347,6 +349,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
           ],
         ),
+      ),
     );
   }
 }

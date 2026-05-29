@@ -12,7 +12,7 @@ import { SavedPost } from '../entities/saved-post.entity';
 import { SavedCollection } from '../entities/saved-collection.entity';
 import { Comment } from '../entities/comment.entity';
 import { Follow } from '../entities/follow.entity';
-import { FollowStatus } from '../entities/enums';
+import { FollowStatus, PostType } from '../entities/enums';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
@@ -63,11 +63,17 @@ export class PostsService {
   }
 
   async create(userId: string, dto: CreatePostDto) {
+    const mediaUrls = dto.mediaUrls ?? [];
+    if (dto.type === PostType.IMAGE && mediaUrls.length === 0) {
+      throw new BadRequestException(
+        'IMAGE posts require at least one media URL. Upload the file first.',
+      );
+    }
     const post = this.postRepo.create({
       authorId: userId,
       type: dto.type,
       caption: dto.caption ?? undefined,
-      mediaUrls: dto.mediaUrls ?? [],
+      mediaUrls,
       hashtags: dto.hashtags ?? [],
       location: dto.location ?? undefined,
     });
@@ -163,10 +169,31 @@ export class PostsService {
     return this.findOneForViewer(saved.id, userId);
   }
 
+  async pin(id: string, userId: string) {
+    const post = await this.findOne(id);
+    this.assertOwner(post.authorId, userId);
+    post.pinnedAt = new Date();
+    await this.postRepo.save(post);
+    return this.findOneForViewer(id, userId);
+  }
+
+  async unpin(id: string, userId: string) {
+    const post = await this.findOne(id);
+    this.assertOwner(post.authorId, userId);
+    post.pinnedAt = null;
+    await this.postRepo.save(post);
+    return this.findOneForViewer(id, userId);
+  }
+
   async remove(id: string, userId: string) {
     const post = await this.findOne(id);
     this.assertOwner(post.authorId, userId);
-    await this.postRepo.remove(post);
+    await this.postRepo.manager.transaction(async (manager) => {
+      await manager.delete(Comment, { postId: id });
+      await manager.delete(PostLike, { postId: id });
+      await manager.delete(SavedPost, { postId: id });
+      await manager.delete(Post, { id });
+    });
     return { message: 'Post deleted' };
   }
 
@@ -251,29 +278,45 @@ export class PostsService {
     await this.postRepo.update({ id: postId }, { likesCount: Math.max(0, count) });
   }
 
+  private async syncCommentsCount(postId: string) {
+    const count = await this.commentRepo.count({ where: { postId } });
+    await this.postRepo.update(
+      { id: postId },
+      { commentsCount: Math.max(0, count) },
+    );
+    return count;
+  }
+
   async getComments(postId: string, page = 1, limit = 20) {
     await this.findOne(postId);
-    const [items, total] = await this.commentRepo.findAndCount({
-      where: { postId },
-      relations: { author: true },
-      order: { createdAt: 'DESC' },
-      take: limit,
-      skip: (page - 1) * limit,
-    });
+    const items = await this.commentRepo
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.author', 'author')
+      .where('c.postId = :postId', { postId })
+      .orderBy('c.createdAt', 'DESC')
+      .take(limit)
+      .skip((page - 1) * limit)
+      .getMany();
+    const mappedItems = items.map((c) => ({
+      id: c.id,
+      text: c.text,
+      likesCount: c.likesCount,
+      createdAt: c.createdAt.toISOString(),
+      author: c.author
+        ? {
+            id: c.author.id,
+            username: `@${c.author.username}`,
+            avatarUrl: c.author.avatarUrl ?? null,
+          }
+        : {
+            id: c.authorId,
+            username: '@unknown',
+            avatarUrl: null,
+          },
+    }));
+    const total = await this.syncCommentsCount(postId);
     return {
-      items: items.map((c) => ({
-        id: c.id,
-        text: c.text,
-        likesCount: c.likesCount,
-        createdAt: c.createdAt,
-        author: c.author
-          ? {
-              id: c.author.id,
-              username: `@${c.author.username}`,
-              avatarUrl: c.author.avatarUrl,
-            }
-          : null,
-      })),
+      items: mappedItems,
       page,
       limit,
       total,
@@ -288,7 +331,7 @@ export class PostsService {
       text: dto.text,
     });
     await this.commentRepo.save(comment);
-    await this.postRepo.increment({ id: postId }, 'commentsCount', 1);
+    await this.syncCommentsCount(postId);
     return this.findOneForViewer(postId, userId);
   }
 

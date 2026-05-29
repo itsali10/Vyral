@@ -13,6 +13,7 @@ class VyralInputField extends StatelessWidget {
     this.keyboardType = TextInputType.text,
     this.validator,
     this.suffixIcon,
+    this.onChanged,
   });
 
   final String label;
@@ -22,6 +23,7 @@ class VyralInputField extends StatelessWidget {
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
   final Widget? suffixIcon;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +34,7 @@ class VyralInputField extends StatelessWidget {
         obscureText: obscureText,
         keyboardType: keyboardType,
         validator: validator,
+        onChanged: onChanged,
         style: VyralTypography.inter(fontSize: 14, color: VyralColors.white),
         decoration: InputDecoration(
           isDense: true,

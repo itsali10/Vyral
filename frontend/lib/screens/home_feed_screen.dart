@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/feed_post.dart';
+import '../services/api_client.dart';
 import '../services/posts_api_service.dart';
+import '../utils/api_error_messages.dart';
 import '../services/settings_preferences.dart';
 import '../theme/vyral_typography.dart';
 
@@ -10,6 +12,7 @@ import '../widgets/post_card.dart';
 import '../widgets/vyral_bottom_nav.dart';
 import '../widgets/vyral_navigation_drawer.dart';
 import '../widgets/vyral_refresh_scroll.dart';
+import '../widgets/vyral_responsive_body.dart';
 import '../widgets/vyral_scaffold.dart';
 import '../widgets/vyral_universal_actions.dart';
 
@@ -116,7 +119,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = e is ApiException
+            ? friendlyApiMessage(e)
+            : 'Could not load feed. Pull to refresh or tap Retry.';
         _loading = false;
       });
     }
@@ -194,12 +199,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
     return updated;
   }
 
-  void _removePost(String postId) {
+  void _onPostDeleted(String postId) {
     setState(() {
       _forYou = _forYou.where((p) => p.id != postId).toList();
       _following = _following.where((p) => p.id != postId).toList();
       _trending = _trending.where((p) => p.id != postId).toList();
     });
+    _loadFeeds();
   }
 
   Widget _tabList(
@@ -261,7 +267,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
             onLike: _onLike,
             onSave: _onSave,
             onPostUpdated: _replacePost,
-            onPostDeleted: _removePost,
+            onPostDeleted: _onPostDeleted,
           );
         },
       ),
@@ -365,7 +371,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
       backgroundColor:
           isDark ? VyralColors.background : VyralColors.mainBackground,
       drawer: const VyralNavigationDrawer(),
-      body: Column(
+      body: VyralResponsiveBody(
+        child: Column(
         children: [
           Expanded(child: _buildFeed()),
           VyralBottomNav(
@@ -373,6 +380,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
             onDestinationSelected: _onBottomNav,
           ),
         ],
+        ),
       ),
     );
   }

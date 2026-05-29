@@ -46,6 +46,10 @@ export class Post {
   @Column({ default: 0 })
   savesCount: number;
 
+  /** When set, post is pinned to the top of the author's profile. */
+  @Column({ type: 'timestamptz', nullable: true })
+  pinnedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

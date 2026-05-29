@@ -147,11 +147,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                         post: _posts[index],
                         onLike: _onLike,
                         onSave: _onSave,
-                        onPostDeleted: (id) {
-                          setState(() {
-                            _posts = _posts.where((p) => p.id != id).toList();
-                          });
-                        },
+                        onPostDeleted: (_) => _load(),
                       ),
                     ),
             ),

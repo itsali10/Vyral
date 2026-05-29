@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Post,
   UploadedFile,
@@ -20,10 +21,16 @@ export class UploadController {
   @Post()
   @ApiOperation({ summary: 'Upload image or video; returns public URL' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 15 * 1024 * 1024 },
+    }),
+  )
   async upload(@UploadedFile() file: Express.Multer.File) {
-    if (!file) {
-      return { url: null };
+    if (!file || !file.buffer?.length) {
+      throw new BadRequestException(
+        'No image file received. Send multipart field "file".',
+      );
     }
     const url = await this.uploadService.saveFile(file);
     return { url };

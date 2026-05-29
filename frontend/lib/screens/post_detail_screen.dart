@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/feed_post.dart';
+import '../services/auth_service.dart';
 import '../services/posts_api_service.dart';
 import '../theme/vyral_typography.dart';
 import '../theme/vyral_theme.dart';
@@ -12,10 +13,14 @@ class PostDetailScreen extends StatefulWidget {
     super.key,
     required this.postId,
     this.initialPost,
+    this.manageAsOwner = false,
   });
 
   final String postId;
   final FeedPost? initialPost;
+
+  /// Passed through when opening from your profile so owner menu stays available.
+  final bool manageAsOwner;
 
   @override
   State<PostDetailScreen> createState() => _PostDetailScreenState();
@@ -109,10 +114,16 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     if (post == null) {
       return const Center(child: Text('Post not found'));
     }
+    final myId = AuthService.instance.user?.id;
+    final manageAsOwner = widget.manageAsOwner ||
+        (myId != null &&
+            post.authorIdSafe.isNotEmpty &&
+            myId == post.authorIdSafe);
     return ListView(
       children: [
         PostCard(
           post: post,
+          manageAsOwner: manageAsOwner,
           onLike: (p, liked) async {
             final updated =
                 await PostsApiService.instance.setLike(p, liked: liked);

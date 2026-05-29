@@ -1,7 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../models/feed_post.dart';
+import '../screens/post_detail_screen.dart';
+import '../services/api_client.dart';
 import '../theme/vyral_typography.dart';
+import '../utils/api_error_messages.dart';
 
 import '../services/auth_service.dart';
 import '../services/posts_api_service.dart';
@@ -14,6 +17,7 @@ class PostCard extends StatefulWidget {
   const PostCard({
     super.key,
     required this.post,
+    this.manageAsOwner = false,
     this.onLike,
     this.onSave,
     this.onPostUpdated,
@@ -21,6 +25,9 @@ class PostCard extends StatefulWidget {
   });
 
   final FeedPost post;
+
+  /// When true (e.g. on your profile), shows owner actions even if authorId is missing.
+  final bool manageAsOwner;
   final Future<FeedPost> Function(FeedPost post, bool liked)? onLike;
   final Future<FeedPost> Function(
     FeedPost post,
@@ -52,16 +59,102 @@ class _PostCardState extends State<PostCard> {
         oldWidget.post.likesCount != widget.post.likesCount ||
         oldWidget.post.commentsCount != widget.post.commentsCount ||
         oldWidget.post.isLiked != widget.post.isLiked ||
-        oldWidget.post.isSaved != widget.post.isSaved) {
+        oldWidget.post.isSaved != widget.post.isSaved ||
+        oldWidget.post.isPinned != widget.post.isPinned) {
       _post = widget.post;
     }
   }
 
-  bool get _isOwner {
+  bool get _canManagePost {
+    if (widget.manageAsOwner) return true;
     final myId = AuthService.instance.user?.id;
     return myId != null &&
         _post.authorIdSafe.isNotEmpty &&
         myId == _post.authorIdSafe;
+  }
+
+  Future<void> _viewPost() async {
+    final deletedId = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => PostDetailScreen(
+          postId: _post.id,
+          initialPost: _post,
+          manageAsOwner: widget.manageAsOwner,
+        ),
+      ),
+    );
+    if (deletedId != null && mounted) {
+      widget.onPostDeleted?.call(deletedId);
+    }
+  }
+
+  Future<void> _togglePin() async {
+    final targetPinned = !_post.isPinned;
+    setState(() => _busy = true);
+    try {
+      final updated = await PostsApiService.instance.setPinned(
+        _post,
+        pinned: targetPinned,
+      );
+      if (!mounted) return;
+      setState(() {
+        _post = updated;
+        _busy = false;
+      });
+      widget.onPostUpdated?.call(updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(targetPinned ? 'Post pinned' : 'Post unpinned'),
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyApiMessage(e))),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update pin: $e')),
+      );
+    }
+  }
+
+  Future<void> _showEditPostOptions() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Edit caption'),
+              onTap: () => Navigator.pop(ctx, 'caption'),
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline, color: VyralColors.error),
+              title: Text(
+                'Delete post',
+                style: TextStyle(color: VyralColors.error),
+              ),
+              onTap: () => Navigator.pop(ctx, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case 'caption':
+        await _editPost();
+        break;
+      case 'delete':
+        await _deletePost();
+        break;
+    }
   }
 
   Future<void> _handleLike() async {
@@ -137,6 +230,8 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
+  static const int _maxCaptionLength = 280;
+
   Future<void> _editPost() async {
     final controller = TextEditingController(text: _post.caption ?? '');
     final saved = await showDialog<bool>(
@@ -145,6 +240,7 @@ class _PostCardState extends State<PostCard> {
         title: const Text('Edit caption'),
         content: TextField(
           controller: controller,
+          maxLength: _maxCaptionLength,
           maxLines: 4,
           decoration: const InputDecoration(hintText: 'Caption'),
         ),
@@ -164,11 +260,23 @@ class _PostCardState extends State<PostCard> {
       controller.dispose();
       return;
     }
+    final newCaption = controller.text.trim();
+    if (newCaption.length > _maxCaptionLength) {
+      controller.dispose();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Caption must be $_maxCaptionLength characters or fewer.'),
+        ),
+      );
+      return;
+    }
     setState(() => _busy = true);
     try {
       final updated = await PostsApiService.instance.updatePost(
         _post.id,
-        caption: controller.text.trim(),
+        caption: newCaption,
+        fallback: _post,
       );
       if (!mounted) return;
       setState(() {
@@ -178,6 +286,12 @@ class _PostCardState extends State<PostCard> {
       widget.onPostUpdated?.call(updated);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Post updated')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyApiMessage(e))),
       );
     } catch (e) {
       if (!mounted) return;
@@ -217,6 +331,12 @@ class _PostCardState extends State<PostCard> {
       widget.onPostDeleted?.call(_post.id);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Post deleted')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyApiMessage(e))),
       );
     } catch (e) {
       if (!mounted) return;
@@ -294,13 +414,28 @@ class _PostCardState extends State<PostCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          p.username,
-                          style: VyralTypography.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: title,
-                          ),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                p.username,
+                                style: VyralTypography.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: title,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (p.isPinned) ...[
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.push_pin,
+                                size: 14,
+                                color: muted,
+                              ),
+                            ],
+                          ],
                         ),
                         Text(
                           p.timeAgo,
@@ -313,28 +448,38 @@ class _PostCardState extends State<PostCard> {
                     ),
                   ),
                 ),
-                if (_isOwner)
+                if (_canManagePost)
                   PopupMenuButton<String>(
                     icon: Icon(Icons.more_horiz, color: muted, size: 18),
                     onSelected: (value) {
                       switch (value) {
-                        case 'edit':
-                          _editPost();
+                        case 'view':
+                          _viewPost();
                           break;
-                        case 'delete':
-                          _deletePost();
+                        case 'edit':
+                          _showEditPostOptions();
+                          break;
+                        case 'pin':
+                          _togglePin();
                           break;
                       }
                     },
                     itemBuilder: (ctx) => [
                       const PopupMenuItem(
-                        value: 'edit',
-                        child: Text('Edit caption'),
+                        value: 'view',
+                        child: Text('View post'),
                       ),
                       const PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Delete post'),
+                        value: 'edit',
+                        child: Text('Edit post'),
                       ),
+                      if (widget.manageAsOwner)
+                        PopupMenuItem(
+                          value: 'pin',
+                          child: Text(
+                            _post.isPinned ? 'Unpin post' : 'Pin post',
+                          ),
+                        ),
                     ],
                   )
                 else

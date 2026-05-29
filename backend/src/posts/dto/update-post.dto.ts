@@ -1,10 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdatePostDto {
   @ApiPropertyOptional({ example: 'Updated caption ✨' })
   @IsOptional()
   @IsString()
+  @MaxLength(280)
   caption?: string;
 
   @ApiPropertyOptional({ type: [String], example: ['updated', 'hashtag'] })

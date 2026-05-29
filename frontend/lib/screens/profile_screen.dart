@@ -2,8 +2,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../models/feed_post.dart';
 import 'edit_profile_screen.dart';
+import '../services/api_client.dart';
 import '../services/auth_service.dart';
+import '../services/settings_api_service.dart';
 import '../services/users_api_service.dart';
+import '../utils/api_error_messages.dart';
 import '../theme/vyral_typography.dart';
 
 import '../theme/vyral_theme.dart';
@@ -27,9 +30,10 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   UserProfile? _profile;
   List<FeedPost> _posts = [];
-  List<Map<String, dynamic>> _pins = [];
   bool _loading = true;
   bool _followBusy = false;
+  bool _blockBusy = false;
+  bool _isBlocked = false;
 
   bool get _isOwnProfile {
     final id = widget.userId;
@@ -46,30 +50,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userId != widget.userId) {
+      _profile = null;
+      _posts = [];
+      _load();
+    }
+  }
+
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      if (!_isOwnProfile) {
+        _profile = null;
+        _posts = [];
+      }
+    });
     try {
       final UserProfile profile;
       final List<FeedPost> posts;
-      final List<Map<String, dynamic>> pins;
 
       if (_isOwnProfile) {
         profile = await UsersApiService.instance.getMe();
         posts = await UsersApiService.instance.getMyPosts();
-        pins = await UsersApiService.instance.getMyPins();
         await AuthService.instance.refreshProfile();
       } else {
         final userId = _targetUserId!;
         profile = await UsersApiService.instance.getUser(userId);
         posts = await UsersApiService.instance.getUserPosts(userId);
-        pins = await UsersApiService.instance.getUserPins(userId);
+      }
+
+      var isBlocked = false;
+      if (!_isOwnProfile && _targetUserId != null) {
+        final blocked = await SettingsApiService.instance.getBlockedUsers();
+        isBlocked = blocked.any((u) => u.id == _targetUserId);
       }
 
       if (!mounted) return;
       setState(() {
         _profile = profile;
         _posts = posts;
-        _pins = pins;
+        _isBlocked = isBlocked;
         _loading = false;
       });
     } catch (e) {
@@ -113,6 +136,81 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _confirmBlock() async {
+    final profile = _profile;
+    if (profile == null || _isOwnProfile || _blockBusy) return;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Block account?'),
+        content: Text(
+          "${profile.displayUsername} won't be able to interact with you, "
+          'and their posts will be hidden from your feed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: VyralColors.error),
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+    setState(() => _blockBusy = true);
+    try {
+      await SettingsApiService.instance.blockUser(profile.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Blocked ${profile.displayUsername}')),
+      );
+      Navigator.of(context).pop();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyApiMessage(e))),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not block user: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _blockBusy = false);
+    }
+  }
+
+  Future<void> _unblockUser() async {
+    final profile = _profile;
+    if (profile == null || _isOwnProfile || _blockBusy) return;
+    setState(() => _blockBusy = true);
+    try {
+      await SettingsApiService.instance.unblockUser(profile.id);
+      if (!mounted) return;
+      setState(() => _isBlocked = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unblocked ${profile.displayUsername}')),
+      );
+      await _load();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyApiMessage(e))),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not unblock user: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _blockBusy = false);
+    }
+  }
+
   void _onBottomNav(int index) {
     switch (index) {
       case 0:
@@ -132,17 +230,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Color _pinShade(int i) {
-    return [
-      VyralColors.blueGray,
-      VyralColors.blueGrayDark,
-      VyralColors.blueGrayLight,
-      VyralColors.blueGray,
-      VyralColors.blueGrayLight,
-      VyralColors.blueGrayDark,
-    ][i % 6];
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -155,7 +242,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final divider = isDark ? VyralColors.blueGray : VyralColors.border;
     final avatarBg = isDark ? VyralColors.blueGray : VyralColors.secondaryBackground;
 
-    final profile = _profile ?? AuthService.instance.user;
+    // Only use cached session user on your own profile — never while loading someone else.
+    final profile =
+        _isOwnProfile ? (_profile ?? AuthService.instance.user) : _profile;
+    final showLoading = _loading || profile == null;
+
     final username = profile?.displayUsername ?? '@yourusername';
     final bio = profile?.bio ?? 'creating in soft chaos ✦ collector of moments';
     final initial = (profile?.fullName.isNotEmpty == true)
@@ -165,11 +256,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return VyralScaffold(
       backgroundColor: pageBg,
       drawer: _isOwnProfile ? const VyralNavigationDrawer() : null,
-      body: _loading && profile == null
+      body: showLoading
             ? const Center(child: CircularProgressIndicator())
-            : DefaultTabController(
-                length: 2,
-                child: Column(
+            : Column(
                   children: [
                     Expanded(
                       child: NestedScrollView(
@@ -231,6 +320,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                   context,
                                                 ).pushNamed('/settings'),
                                               ),
+                                            ],
+                                          ),
+                                        )
+                                      else
+                                        Positioned(
+                                          top: 8,
+                                          right: 8,
+                                          child: PopupMenuButton<String>(
+                                            icon: Icon(
+                                              Icons.more_horiz,
+                                              color: heading,
+                                            ),
+                                            enabled: !_blockBusy,
+                                            onSelected: (value) {
+                                              switch (value) {
+                                                case 'block':
+                                                  _confirmBlock();
+                                                  break;
+                                                case 'unblock':
+                                                  _unblockUser();
+                                                  break;
+                                              }
+                                            },
+                                            itemBuilder: (ctx) => [
+                                              if (_isBlocked)
+                                                const PopupMenuItem(
+                                                  value: 'unblock',
+                                                  child: Text('Unblock account'),
+                                                )
+                                              else
+                                                const PopupMenuItem(
+                                                  value: 'block',
+                                                  child: Text('Block account'),
+                                                ),
                                             ],
                                           ),
                                         ),
@@ -385,16 +508,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           ),
                                         ),
                                       const SizedBox(height: 16),
-                                      TabBar(
-                                        tabs: const [
-                                          Tab(text: 'Pins'),
-                                          Tab(text: 'Posts'),
-                                        ],
-                                        indicatorColor: accent,
-                                        labelColor: heading,
-                                        unselectedLabelColor: muted,
-                                        dividerColor: divider,
-                                      ),
                                     ],
                                   ),
                                 ],
@@ -402,96 +515,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ];
                         },
-                        body: TabBarView(
-                          children: [
-                            GridView.builder(
-                              padding: const EdgeInsets.all(16),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 8,
-                                mainAxisSpacing: 8,
-                                childAspectRatio: 1.0,
-                              ),
-                              itemCount: _pins.isEmpty ? 6 : _pins.length,
-                              itemBuilder: (ctx, i) {
-                                final pin = i < _pins.length ? _pins[i] : null;
-                                final url = pin?['mediaUrl'] as String?;
-                                return ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: url != null
-                                      ? CachedNetworkImage(
-                                          imageUrl: url,
-                                          fit: BoxFit.cover,
-                                        )
-                                      : Container(color: _pinShade(i)),
-                                );
-                              },
-                            ),
-                            _posts.isEmpty
-                                ? const Center(child: Text('No posts yet'))
-                                : ListView.builder(
-                                    padding: const EdgeInsets.only(bottom: 8, top: 4),
-                                    itemCount: _posts.length,
-                                    itemBuilder: (ctx, i) {
-                                      final post = _posts[i];
-                                      return PostCard(
-                                        key: ValueKey(post.id),
-                                        post: post,
-                                        onLike: (p, liked) async {
-                                          final updated = await PostsApiService
-                                              .instance
-                                              .setLike(p, liked: liked);
-                                          setState(() {
-                                            _posts = _posts
-                                                .map((x) =>
-                                                    x.id == updated.id
-                                                        ? updated
-                                                        : x)
-                                                .toList();
-                                          });
-                                          return updated;
-                                        },
-                                        onSave: (p, saved, {collectionId}) async {
-                                          final updated = await PostsApiService
-                                              .instance
-                                              .setSaved(
-                                            p,
-                                            saved: saved,
-                                            collectionId: collectionId,
-                                          );
-                                          setState(() {
-                                            _posts = _posts
-                                                .map((x) =>
-                                                    x.id == updated.id
-                                                        ? updated
-                                                        : x)
-                                                .toList();
-                                          });
-                                          return updated;
-                                        },
-                                        onPostUpdated: (updated) {
-                                          setState(() {
-                                            _posts = _posts
-                                                .map((x) =>
-                                                    x.id == updated.id
-                                                        ? updated
-                                                        : x)
-                                                .toList();
-                                          });
-                                        },
-                                        onPostDeleted: (id) {
-                                          setState(() {
-                                            _posts = _posts
-                                                .where((x) => x.id != id)
-                                                .toList();
-                                          });
-                                        },
-                                      );
+                        body: _posts.isEmpty
+                            ? const Center(child: Text('No posts yet'))
+                            : ListView.builder(
+                                padding:
+                                    const EdgeInsets.only(bottom: 8, top: 4),
+                                itemCount: _posts.length,
+                                itemBuilder: (ctx, i) {
+                                  final post = _posts[i];
+                                  return PostCard(
+                                    key: ValueKey(post.id),
+                                    post: post,
+                                    manageAsOwner: _isOwnProfile,
+                                    onLike: (p, liked) async {
+                                      final updated = await PostsApiService
+                                          .instance
+                                          .setLike(p, liked: liked);
+                                      setState(() {
+                                        _posts = _posts
+                                            .map((x) => x.id == updated.id
+                                                ? updated
+                                                : x)
+                                            .toList();
+                                      });
+                                      return updated;
                                     },
-                                  ),
-                          ],
-                        ),
+                                    onSave: (p, saved, {collectionId}) async {
+                                      final updated = await PostsApiService
+                                          .instance
+                                          .setSaved(
+                                        p,
+                                        saved: saved,
+                                        collectionId: collectionId,
+                                      );
+                                      setState(() {
+                                        _posts = _posts
+                                            .map((x) => x.id == updated.id
+                                                ? updated
+                                                : x)
+                                            .toList();
+                                      });
+                                      return updated;
+                                    },
+                                    onPostUpdated: (_) => _load(),
+                                    onPostDeleted: (_) => _load(),
+                                  );
+                                },
+                              ),
                       ),
                     ),
                     if (_isOwnProfile)
@@ -501,7 +571,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                   ],
                 ),
-              ),
     );
   }
 }

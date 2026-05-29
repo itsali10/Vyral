@@ -20,6 +20,8 @@ class CreatePostScreen extends StatefulWidget {
 }
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
+  static const int maxCaptionLength = 280;
+
   final _captionController = TextEditingController();
   PickedMedia? _selectedImage;
   bool _isPosting = false;
@@ -151,6 +153,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       );
       return;
     }
+    if (caption.length > maxCaptionLength) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Caption must be $maxCaptionLength characters or fewer.')),
+      );
+      return;
+    }
     setState(() => _isPosting = true);
     try {
       await PostCreationService.instance.submitPost(
@@ -188,8 +196,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     final inputText = isDark ? VyralColors.caption : VyralColors.primaryText;
     final toolbarBg = isDark ? VyralColors.deepBlack : VyralColors.cardBackground;
     final toolbarBorder = isDark ? Colors.transparent : VyralColors.border;
-    final maxCaptionLength = 280;
-
     return VyralScaffold(
       backgroundColor: pageBg,
       drawer: const VyralNavigationDrawer(),
@@ -282,6 +288,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         Expanded(
                           child: TextField(
                             controller: _captionController,
+                            maxLength: maxCaptionLength,
                             maxLines: null,
                             minLines: 4,
                             decoration: InputDecoration.collapsed(

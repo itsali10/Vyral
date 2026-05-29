@@ -1,6 +1,8 @@
 # Vyral — Rubric requirements checklist (40 marks)
 
-Use this when demoing or self-grading. **SRS/presentation (4 marks)** are your course documents — not in the repo.
+Use this when demoing or self-grading.
+
+**SRS & presentation (4 marks):** Draft SRS in [`docs/SRS.md`](docs/SRS.md) — copy into your course Word/PDF template and fill team names. Demo script: [`docs/PRESENTATION_OUTLINE.md`](docs/PRESENTATION_OUTLINE.md).
 
 ## How to run (app must be running)
 
@@ -87,9 +89,13 @@ Swagger: `http://localhost:3000/docs`
 
 ---
 
-## 6. SRS & presentation (4 marks) — **Your submission**
+## 6. SRS & presentation (4 marks) — **Prepare submission**
 
-Submit SRS per course template and prepare a short demo covering the table in section 1.
+| Item | Status |
+|------|--------|
+| SRS draft aligned with app | ✅ [`docs/SRS.md`](docs/SRS.md) — add team names, export to PDF per course template |
+| Structured demo script | ✅ [`docs/PRESENTATION_OUTLINE.md`](docs/PRESENTATION_OUTLINE.md) |
+| Live presentation | ⬜ Practice 5–8 min demo using section 1 table |
 
 ---
 

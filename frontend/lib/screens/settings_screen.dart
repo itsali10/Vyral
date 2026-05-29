@@ -4,11 +4,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/settings_preferences.dart';
+import '../services/settings_api_service.dart';
 import '../services/users_api_service.dart';
 import '../utils/api_error_messages.dart';
 import 'blocked_accounts_screen.dart';
 import 'edit_profile_screen.dart';
-import 'feed_preferences_screen.dart';
 import 'muted_words_screen.dart';
 import 'linked_accounts_screen.dart';
 import 'password_security_screen.dart';
@@ -44,6 +44,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _loading = true;
+  int _blockedCount = 0;
 
   @override
   void initState() {
@@ -64,8 +65,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadPrefs() async {
     await SettingsPreferences.instance.loadFromApi();
+    await _loadBlockedCount();
     if (!mounted) return;
     setState(() => _loading = false);
+  }
+
+  Future<void> _loadBlockedCount() async {
+    try {
+      final items = await SettingsApiService.instance.getBlockedUsers();
+      if (!mounted) return;
+      setState(() => _blockedCount = items.length);
+    } catch (_) {
+      // Keep previous count if the request fails.
+    }
   }
 
   Future<void> _persistToggle(String apiKey, bool value) async {
@@ -77,28 +89,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  String _feedTabLabel(String key) {
-    switch (key) {
-      case 'following':
-        return 'Following';
-      case 'trending':
-        return 'Trending';
-      default:
-        return 'For You';
+  String _blockedAccountsSubtitle() {
+    if (_blockedCount == 0) {
+      return 'Search users to block';
     }
+    if (_blockedCount == 1) {
+      return '1 blocked account';
+    }
+    return '$_blockedCount blocked accounts';
   }
 
-  String _accentLabel(String key) {
-    switch (key) {
-      case 'teal':
-        return 'Teal';
-      case 'purple':
-        return 'Purple';
-      case 'amber':
-        return 'Amber';
-      default:
-        return 'Dusty rose';
-    }
+  Future<void> _openBlockAccounts() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const BlockedAccountsScreen(autofocusSearch: true),
+      ),
+    );
+    await _loadBlockedCount();
   }
 
   Future<void> _openPrivacy() async {
@@ -210,12 +217,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _openFeedPreferences() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => const FeedPreferencesScreen()),
-    );
-  }
-
   Future<void> _openLanguage() async {
     await showDialog<void>(
       context: context,
@@ -250,42 +251,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       await SettingsPreferences.instance.update({'exploreGridCompact': compact});
       _showSnack(compact ? 'Explore grid: compact' : 'Explore grid: comfortable');
-    } on ApiException catch (e) {
-      _showSnack(friendlyApiMessage(e));
-    }
-  }
-
-  Future<void> _pickAccentColor() async {
-    const options = [
-      ('rose', 'Dusty rose', SettingsPalette.pink),
-      ('teal', 'Teal', SettingsPalette.teal),
-      ('purple', 'Purple', SettingsPalette.purple),
-      ('amber', 'Amber', SettingsPalette.amber),
-    ];
-    final current = SettingsPreferences.instance.settings.accentColor;
-    final picked = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Accent color'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: options
-              .map(
-                (o) => ListTile(
-                  leading: CircleAvatar(backgroundColor: o.$3),
-                  title: Text(o.$2),
-                  trailing: current == o.$1 ? const Icon(Icons.check_rounded) : null,
-                  onTap: () => Navigator.pop(ctx, o.$1),
-                ),
-              )
-              .toList(),
-        ),
-      ),
-    );
-    if (picked == null) return;
-    try {
-      await SettingsPreferences.instance.update({'accentColor': picked});
-      _showSnack('Accent updated');
     } on ApiException catch (e) {
       _showSnack(friendlyApiMessage(e));
     }
@@ -411,13 +376,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   muted: muted,
                 ),
                 SettingsRow(
-                  icon: Icon(Icons.person_off_outlined, size: 22, color: SettingsPalette.coral),
-                  label: 'Blocked accounts',
-                  onPress: () => Navigator.of(context).push<void>(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const BlockedAccountsScreen(),
-                    ),
-                  ),
+                  icon: Icon(Icons.block_rounded, size: 22, color: SettingsPalette.coral),
+                  label: 'Block account',
+                  subtitle: _blockedAccountsSubtitle(),
+                  onPress: _openBlockAccounts,
                   right: SettingsRight.chevron,
                   heading: heading,
                   muted: muted,
@@ -480,15 +442,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 SettingsRow(
-                  icon: Icon(Icons.palette_outlined, size: 22, color: SettingsPalette.purple),
-                  label: 'Accent color',
-                  subtitle: _accentLabel(SettingsPreferences.instance.settings.accentColor),
-                  onPress: _pickAccentColor,
-                  right: SettingsRight.chevron,
-                  heading: heading,
-                  muted: muted,
-                ),
-                SettingsRow(
                   icon: Icon(Icons.grid_view_rounded, size: 22, color: SettingsPalette.teal),
                   label: 'Explore grid density',
                   subtitle: SettingsPreferences.instance.exploreGridCompact
@@ -535,15 +488,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   heading: heading,
                   muted: muted,
                 ),
-                SettingsRow(
-                  icon: Icon(Icons.trending_up_rounded, size: 22, color: SettingsPalette.amber),
-                  label: 'Your post is trending',
-                  toggleValue: SettingsPreferences.instance.settings.notifTrending,
-                  onToggle: (v) => _persistToggle('notifTrending', v),
-                  right: SettingsRight.toggle,
-                  heading: heading,
-                  muted: muted,
-                ),
               ],
             ),
             SettingsSection(
@@ -553,16 +497,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               muted: muted,
               heading: heading,
               children: [
-                SettingsRow(
-                  icon: Icon(Icons.tune_rounded, size: 22, color: SettingsPalette.purple),
-                  label: 'Feed preferences',
-                  subtitle:
-                      'Default: ${_feedTabLabel(SettingsPreferences.instance.defaultFeedTab)}',
-                  onPress: _openFeedPreferences,
-                  right: SettingsRight.chevron,
-                  heading: heading,
-                  muted: muted,
-                ),
                 SettingsRow(
                   icon: Icon(Icons.language_rounded, size: 22, color: SettingsPalette.teal),
                   label: 'Language',

@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  MaxLength,
 } from 'class-validator';
 import { PostType } from '../../entities/enums';
 
@@ -15,6 +16,7 @@ export class CreatePostDto {
   @ApiPropertyOptional({ example: 'Sunset vibes 🌅 #golden' })
   @IsOptional()
   @IsString()
+  @MaxLength(280)
   caption?: string;
 
   @ApiPropertyOptional({ type: [String], description: 'Array of media URLs (already uploaded)' })

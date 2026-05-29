@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
+import '../utils/io_file_bytes_stub.dart'
+    if (dart.library.io) '../utils/io_file_bytes.dart' as io_file;
 
 import '../config/api_config.dart';
 import '../models/picked_media.dart';
@@ -22,6 +24,7 @@ class ApiClient {
   static final ApiClient instance = ApiClient._();
 
   static const _requestTimeout = Duration(seconds: 12);
+  static const _uploadTimeout = Duration(seconds: 90);
 
   String get _base => ApiConfig.baseUrl;
 
@@ -31,10 +34,6 @@ class ApiClient {
     } on TimeoutException {
       throw ApiException(
         'Connection timed out. Make sure the backend is running.',
-      );
-    } on SocketException {
-      throw ApiException(
-        'Cannot connect to the server. Start the backend with npm run start:dev.',
       );
     } on http.ClientException catch (e) {
       throw ApiException(
@@ -114,38 +113,58 @@ class ApiClient {
       final uri = Uri.parse('$_base/upload');
       final request = http.MultipartRequest('POST', uri);
       final token = AuthService.instance.accessToken;
-      if (token != null) {
-        request.headers['Authorization'] = 'Bearer $token';
+      if (token == null || token.isEmpty) {
+        throw ApiException('Please log in again to upload photos.', statusCode: 401);
       }
-      if (media.bytes != null) {
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'file',
-            media.bytes!,
-            filename: media.name,
-          ),
-        );
-      } else if (media.path != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'file',
-            media.path!,
-            filename: media.name,
-          ),
-        );
-      } else {
-        throw ApiException('No file data to upload');
-      }
-      final streamed = await request.send().timeout(_requestTimeout);
+      request.headers['Authorization'] = 'Bearer $token';
+
+      final bytes = await _readMediaBytes(media);
+      final filename = _safeUploadFilename(media.name);
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: filename,
+        ),
+      );
+
+      final streamed = await request.send().timeout(_uploadTimeout);
       final res =
-          await http.Response.fromStream(streamed).timeout(_requestTimeout);
+          await http.Response.fromStream(streamed).timeout(_uploadTimeout);
       final data = _decode(res);
       final url = data['url'] as String?;
       if (url == null || url.isEmpty) {
-        throw ApiException('Upload failed');
+        throw ApiException(
+          'Upload failed. The server did not receive your image.',
+          statusCode: res.statusCode,
+        );
       }
       return url;
     });
+  }
+
+  Future<Uint8List> _readMediaBytes(PickedMedia media) async {
+    if (media.bytes != null && media.bytes!.isNotEmpty) {
+      return media.bytes!;
+    }
+    if (!kIsWeb && media.path != null && media.path!.isNotEmpty) {
+      try {
+        final bytes = await io_file.readPathBytes(media.path!);
+        return Uint8List.fromList(bytes);
+      } on StateError catch (e) {
+        throw ApiException(e.message);
+      } catch (e) {
+        throw ApiException('Could not read image: $e');
+      }
+    }
+    throw ApiException('No image data to upload');
+  }
+
+  String _safeUploadFilename(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return 'upload.jpg';
+    if (trimmed.contains('.') && !trimmed.endsWith('.')) return trimmed;
+    return '$trimmed.jpg';
   }
 
   Future<Map<String, String>> _headers(bool auth) async {
