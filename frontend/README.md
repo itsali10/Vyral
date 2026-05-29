@@ -24,7 +24,7 @@ Start the backend first (`../backend`, `npm run start:dev`).
 | `lib/services/` | HTTP/API (`ApiClient`, `AuthService`, `PostsApiService`) |
 | `lib/theme/` | Colors, typography, light/dark themes |
 
-## Flutter concepts (rubric)
+## Flutter concepts
 
 1. **Multi-screen navigation** — `MaterialApp` named routes in `lib/main.dart` (`/home`, `/explore`, `/create`, …).  
 2. **Lists with models** — `FeedPost` lists rendered with `ListView.builder` on home and profile.  

@@ -1,13 +1,13 @@
-# Vyral — Presentation / demo outline (5–8 minutes)
+# Vyral - Presentation / Demo Outline (5-8 minutes)
 
-Use this structure for the **SRS & presentation (4 marks)** rubric category.
+Use this structure for a concise product walkthrough and live demo.
 
 ---
 
 ## 1. Introduction (30 s)
 
-- **Product:** Vyral — share photos and captions, discover content, follow people.  
-- **Stack:** Flutter + NestJS + PostgreSQL (Supabase Auth).  
+- **Product:** Vyral - share photos and captions, discover content, follow people.
+- **Stack:** Flutter + NestJS + PostgreSQL (Supabase Auth).
 - **Team:** Name each member and one sentence on their contribution.
 
 ---
@@ -26,58 +26,58 @@ flowchart LR
 
 ---
 
-## 3. Flutter concepts (45 s) — rubric: 5 marks
+## 3. Flutter Concepts (45 s)
 
 | Concept | Demo / file |
 |---------|-------------|
-| Multi-screen navigation | Open Welcome → Login → Home; mention routes in `main.dart` |
+| Multi-screen navigation | Open Welcome -> Login -> Home; mention routes in `main.dart` |
 | Lists with models | Home feed `ListView.builder` + `FeedPost` model |
 | Stateful UI | Like a post (count updates), toggle dark mode in Settings |
 
 ---
 
-## 4. Live demo — core flows (4–5 min) — rubric: 10 marks functionality
+## 4. Live Demo - Core Flows (4-5 min)
 
-1. **Register** new user (show validation: email, password strength).  
-2. **Log in** (or use test account).  
-3. **Create post** — image + caption; show validation if both empty.  
-4. **Home feed** — switch For You / Following / Trending; pull to refresh.  
-5. **Interact** — like, open comments, save to collection.  
-6. **Explore** — search keyword; tap post → detail.  
-7. **Profile** — open another user → Follow; open own profile → Edit profile.  
-8. **Owner actions** — ⋮ on your post → Edit caption → Delete (confirm).  
-9. **Saved** — open collection.  
-10. **Settings** — theme toggle → **Log out**.
+1. **Register** new user (show validation: email, password strength).
+2. **Log in** (or use test account).
+3. **Create post** - image + caption; show validation if both empty.
+4. **Home feed** - switch For You / Following / Trending; pull to refresh.
+5. **Interact** - like, open comments, save to collection.
+6. **Explore** - search keyword; tap post -> detail.
+7. **Profile** - open another user -> Follow; open own profile -> Edit profile.
+8. **Owner actions** - menu on your post -> Edit caption -> Delete (confirm).
+9. **Saved** - open collection.
+10. **Settings** - theme toggle -> **Log out**.
 
 ---
 
-## 5. Backend (30 s) — rubric: 4 marks
+## 5. Backend (30 s)
 
-- Open Swagger: http://localhost:3000/docs  
-- Mention: validation pipe, JWT guard, posts CRUD, upload endpoint.  
+- Open Swagger: http://localhost:3000/docs
+- Mention: validation pipe, JWT guard, posts CRUD, upload endpoint.
 - Optional: show one successful request in network tab.
 
 ---
 
-## 6. UI/UX (20 s) — rubric: 10 marks
+## 6. UI/UX (20 s)
 
-- Consistent theme (light/dark), typography (Inter / Playfair).  
-- Navigation: bottom nav + drawer.  
-- Wide screen: resize Chrome window — content stays centered.
-
----
-
-## 7. Q&A prep
-
-- **Why NestJS?** Structured modules, DTO validation, Swagger.  
-- **State management?** `setState` + `ListenableBuilder` on `AuthService` (no extra package required for course scope).  
-- **What’s not built?** Stories, reels, DMs — out of scope per SRS.
+- Consistent theme (light/dark), typography (Inter / Playfair).
+- Navigation: bottom nav + drawer.
+- Wide screen: resize Chrome window - content stays centered.
 
 ---
 
-## Pre-demo checklist
+## 7. Q&A Prep
 
-- [ ] Backend running: `npm run start:dev` in `backend/`  
-- [ ] Flutter running: `flutter run -d chrome` or `Vyral_API34`  
-- [ ] Test account or plan to register live  
-- [ ] SRS PDF submitted with team names filled in Section 1.3  
+- **Why NestJS?** Structured modules, DTO validation, Swagger.
+- **State management?** `setState` + `ListenableBuilder` on `AuthService` (no extra package required for course scope).
+- **What's not built?** Stories, reels, DMs - out of scope per SRS.
+
+---
+
+## Pre-Demo Checklist
+
+- [ ] Backend running: `npm run start:dev` in `backend/`
+- [ ] Flutter running: `flutter run -d chrome` or `Vyral_API34`
+- [ ] Test account or plan to register live
+- [ ] SRS PDF submitted with team names filled in Section 1.3

@@ -7,9 +7,15 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { UploadService } from './upload.service';
+import type { UploadedMediaFile } from './upload.service';
 
 @ApiTags('Upload')
 @ApiBearerAuth('access-token')
@@ -26,7 +32,7 @@ export class UploadController {
       limits: { fileSize: 15 * 1024 * 1024 },
     }),
   )
-  async upload(@UploadedFile() file: Express.Multer.File) {
+  async upload(@UploadedFile() file: UploadedMediaFile) {
     if (!file || !file.buffer?.length) {
       throw new BadRequestException(
         'No image file received. Send multipart field "file".',

@@ -148,8 +148,8 @@ Vyral is a **client–server** system:
 
 ## 7. Appendices
 
-### 7.1 Demo checklist
-See [`RUBRIC_CHECKLIST.md`](../RUBRIC_CHECKLIST.md) and [`PRESENTATION_OUTLINE.md`](PRESENTATION_OUTLINE.md).
+### 7.1 Demo resources
+See [`PRESENTATION_OUTLINE.md`](PRESENTATION_OUTLINE.md).
 
 ### 7.2 Revision history
 | Version | Date | Changes |
