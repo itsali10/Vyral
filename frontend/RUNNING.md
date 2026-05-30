@@ -58,7 +58,7 @@ Windows/desktop uses `http://localhost:3000`.
 
 ## Auth note
 
-Firebase is **disabled** for auth. The app uses the NestJS backend + Supabase Auth tokens.
+The app uses the NestJS backend + Supabase Auth tokens.
 
 ## Emulator issues
 
