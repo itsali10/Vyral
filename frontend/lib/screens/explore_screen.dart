@@ -10,6 +10,7 @@ import '../theme/vyral_typography.dart';
 import '../theme/vyral_theme.dart';
 import '../screens/post_detail_screen.dart';
 import '../widgets/grid_post_card.dart';
+import '../widgets/vyral_animations.dart';
 import '../widgets/vyral_bottom_nav.dart';
 import '../widgets/vyral_navigation_drawer.dart';
 import '../widgets/vyral_refresh_scroll.dart';
@@ -275,7 +276,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   final selected = _selectedCategory == cat;
                   return Padding(
                     padding: EdgeInsets.only(right: index < _categories.length - 1 ? 8 : 0),
-                    child: GestureDetector(
+                    child: AnimatedPressable(
+                      child: GestureDetector(
                       onTap: () {
                         setState(() => _selectedCategory = cat);
                         _load();
@@ -302,6 +304,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ),
                       ),
                     ),
+                  ),
                   );
                 },
               ),
@@ -336,9 +339,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             mainAxisSpacing: 12,
                             crossAxisSpacing: 12,
                             itemCount: items.length,
-                            itemBuilder: (context, index) => GridPostCard(
-                              item: items[index],
-                              onTap: () => _openPost(index),
+                            itemBuilder: (context, index) => FadeSlideIn(
+                              delay: VyralAnimations.staggerDelay(index),
+                              child: GridPostCard(
+                                item: items[index],
+                                onTap: () => _openPost(index),
+                              ),
                             ),
                           ),
                         ),

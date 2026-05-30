@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'screens/create_post_screen.dart';
 import 'screens/forgot_password_screen.dart';
+import 'screens/search_screen.dart';
 import 'screens/explore_screen.dart';
 import 'screens/home_feed_screen.dart';
 import 'screens/login_screen.dart';
@@ -141,6 +142,7 @@ class _VyralAppState extends State<VyralApp> {
               },
               '/saved': (context) => _guard(const SavedScreen()),
               '/settings': (context) => _guard(const SettingsScreen()),
+              '/search': (context) => _guard(const SearchScreen()),
             },
           );
         },

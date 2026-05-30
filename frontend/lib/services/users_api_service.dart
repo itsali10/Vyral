@@ -1,4 +1,5 @@
 import '../models/feed_post.dart';
+import '../models/user_search_result.dart';
 import 'api_client.dart';
 
 class UsersApiService {
@@ -101,5 +102,52 @@ class UsersApiService {
       body: {'name': name},
     );
     return SavedCollectionModel.fromJson(data);
+  }
+
+  Future<List<FeedPost>> getMySavedPosts({int page = 1}) async {
+    final data = await ApiClient.instance.get(
+      '/users/me/saved',
+      query: {'page': '$page', 'limit': '12'},
+    );
+    final items = data['items'] as List<dynamic>? ?? [];
+    return items
+        .map((e) => FeedPost.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<FeedPost>> getMyLikedPosts({int page = 1}) async {
+    return _parseLiked(
+      await ApiClient.instance.get(
+        '/users/me/liked',
+        query: {'page': '$page', 'limit': '12'},
+      ),
+    );
+  }
+
+  Future<List<FeedPost>> getUserLikedPosts(String userId, {int page = 1}) async {
+    return _parseLiked(
+      await ApiClient.instance.get(
+        '/users/$userId/liked',
+        query: {'page': '$page', 'limit': '12'},
+      ),
+    );
+  }
+
+  List<FeedPost> _parseLiked(Map<String, dynamic> data) {
+    final items = data['items'] as List<dynamic>? ?? [];
+    return items
+        .map((e) => FeedPost.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<UserSearchResult>> searchUsers(String q) async {
+    final data = await ApiClient.instance.get(
+      '/users/search',
+      query: {'q': q},
+    );
+    final items = data['items'] as List<dynamic>? ?? [];
+    return items
+        .map((e) => UserSearchResult.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 }

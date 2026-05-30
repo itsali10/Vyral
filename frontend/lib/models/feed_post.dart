@@ -188,6 +188,7 @@ class UserProfile {
     required this.followingCount,
     this.isPrivate = false,
     this.isFollowing = false,
+    this.showLikesPublicly = true,
     this.email,
   });
 
@@ -202,6 +203,7 @@ class UserProfile {
   final int followingCount;
   final bool isPrivate;
   final bool isFollowing;
+  final bool showLikesPublicly;
   final String? email;
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -222,6 +224,7 @@ class UserProfile {
       followingCount: (json['followingCount'] as num?)?.toInt() ?? 0,
       isPrivate: json['isPrivate'] as bool? ?? false,
       isFollowing: json['isFollowing'] as bool? ?? false,
+      showLikesPublicly: json['showLikesPublicly'] as bool? ?? true,
       email: FeedPost._optionalString(json['email']),
     );
   }

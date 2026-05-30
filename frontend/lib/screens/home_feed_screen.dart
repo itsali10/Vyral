@@ -9,6 +9,7 @@ import '../theme/vyral_typography.dart';
 
 import '../theme/vyral_theme.dart';
 import '../widgets/post_card.dart';
+import '../widgets/vyral_animations.dart';
 import '../widgets/vyral_bottom_nav.dart';
 import '../widgets/vyral_navigation_drawer.dart';
 import '../widgets/vyral_refresh_scroll.dart';
@@ -261,13 +262,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
         itemCount: posts.length,
         itemBuilder: (context, index) {
           final post = posts[index];
-          return PostCard(
+          return FadeSlideIn(
             key: ValueKey(post.id),
-            post: post,
-            onLike: _onLike,
-            onSave: _onSave,
-            onPostUpdated: _replacePost,
-            onPostDeleted: _onPostDeleted,
+            delay: VyralAnimations.staggerDelay(index),
+            child: PostCard(
+              post: post,
+              onLike: _onLike,
+              onSave: _onSave,
+              onPostUpdated: _replacePost,
+              onPostDeleted: _onPostDeleted,
+            ),
           );
         },
       ),
@@ -300,9 +304,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
               ),
               const Spacer(),
               IconButton(
-                tooltip: 'Refresh feed',
-                onPressed: _loadFeeds,
-                icon: Icon(Icons.refresh, size: 22, color: headerText),
+                tooltip: 'Search',
+                onPressed: () => Navigator.of(context).pushNamed('/search'),
+                icon: Icon(Icons.search, size: 22, color: headerText),
               ),
               const VyralUniversalActions(),
             ],

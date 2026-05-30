@@ -257,7 +257,12 @@ export class UsersService {
       !!(await this.followRepo.findOne({
         where: { followerId: requesterId, followingId: targetId },
       }));
-    return { ...toPublicUser(user, stats), isFollowing };
+    const settings = await this.settingsRepo.findOne({ where: { userId: targetId } });
+    return {
+      ...toPublicUser(user, stats),
+      isFollowing,
+      showLikesPublicly: settings?.showLikesPublicly ?? true,
+    };
   }
 
   async getUserPosts(
@@ -387,6 +392,24 @@ export class UsersService {
   async getSavedPosts(userId: string, page = 1, limit = 12) {
     const defaultCollection = await this.ensureDefaultCollection(userId);
     return this.getCollectionPosts(userId, defaultCollection.id, page, limit);
+  }
+
+  async getLikedPosts(requesterId: string, targetId: string, page = 1, limit = 12) {
+    if (requesterId !== targetId) {
+      const settings = await this.settingsRepo.findOne({ where: { userId: targetId } });
+      if (!settings?.showLikesPublicly) {
+        return { items: [] };
+      }
+    }
+    const likes = await this.likeRepo.find({
+      where: { userId: targetId },
+      relations: { post: { author: true } },
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+    const posts = likes.map((l) => l.post).filter(Boolean);
+    return { items: await this.mapPostsForViewer(posts, requesterId) };
   }
 
   private async ensureDefaultCollection(userId: string) {

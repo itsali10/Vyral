@@ -12,6 +12,7 @@ import '../services/settings_preferences.dart';
 import '../theme/vyral_theme.dart';
 import 'post_comments_sheet.dart';
 import 'save_collection_sheet.dart';
+import 'vyral_animations.dart';
 
 class PostCard extends StatefulWidget {
   const PostCard({
@@ -497,11 +498,11 @@ class _PostCardState extends State<PostCard> {
                   width: double.infinity,
                   height: 120,
                   fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(
+                  placeholder: (_, _) => Container(
                     height: 120,
                     color: avatar,
                   ),
-                  errorWidget: (_, __, ___) => Container(
+                  errorWidget: (_, _, _) => Container(
                     height: 120,
                     color: avatar,
                   ),
@@ -589,20 +590,27 @@ class _ActionChip extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: VyralTypography.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: color,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PopAnimation(
+              trigger: isActive,
+              child: Icon(icon, size: 18, color: color),
             ),
-          ),
-        ],
+            const SizedBox(width: 4),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: VyralTypography.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+              child: Text(label),
+            ),
+          ],
+        ),
       ),
     );
   }

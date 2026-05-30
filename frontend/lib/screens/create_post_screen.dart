@@ -203,8 +203,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
+        leadingWidth: 80,
         leading: TextButton(
           onPressed: () => Navigator.of(context).pop(),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
           child: Text(
             'Cancel',
             style: VyralTypography.inter(

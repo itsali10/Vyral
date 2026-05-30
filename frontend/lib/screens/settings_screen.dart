@@ -217,35 +217,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _openLanguage() async {
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Language'),
-        content: const Text('English (US) is the only language available in this build.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _openAccessibility() async {
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Accessibility'),
-        content: const Text(
-          'Use your device system settings for text size and display scaling. '
-          'Vyral respects the platform accessibility settings.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-        ],
-      ),
-    );
-  }
-
   Future<void> _toggleGridDensity() async {
     final compact = !SettingsPreferences.instance.exploreGridCompact;
     try {
@@ -295,7 +266,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         foregroundColor: heading,
         leading: IconButton(
           icon: const Icon(Icons.chevron_left_rounded, size: 28),
-          onPressed: () => Navigator.of(context).maybePop(),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              Navigator.of(context).pushReplacementNamed('/home');
+            }
+          },
         ),
         title: Text(
           'Settings',
@@ -485,35 +462,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   toggleValue: SettingsPreferences.instance.settings.notifFollowers,
                   onToggle: (v) => _persistToggle('notifFollowers', v),
                   right: SettingsRight.toggle,
-                  heading: heading,
-                  muted: muted,
-                ),
-              ],
-            ),
-            SettingsSection(
-              label: 'Content',
-              cardBg: cardBg,
-              borderColor: border,
-              muted: muted,
-              heading: heading,
-              children: [
-                SettingsRow(
-                  icon: Icon(Icons.language_rounded, size: 22, color: SettingsPalette.teal),
-                  label: 'Language',
-                  subtitle: 'English',
-                  onPress: _openLanguage,
-                  right: SettingsRight.chevron,
-                  heading: heading,
-                  muted: muted,
-                ),
-                SettingsRow(
-                  icon: Icon(Icons.accessibility_new_rounded, size: 22, color: SettingsPalette.blue),
-                  label: 'Accessibility',
-                  subtitle: 'Text size, contrast, motion',
-                  badgeText: 'New',
-                  badgeVariant: SettingsBadgeVariant.newBadge,
-                  onPress: _openAccessibility,
-                  right: SettingsRight.chevron,
                   heading: heading,
                   muted: muted,
                 ),

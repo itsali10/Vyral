@@ -7,7 +7,7 @@ import '../utils/api_error_messages.dart';
 import '../theme/vyral_typography.dart';
 
 import '../theme/vyral_theme.dart';
-import '../widgets/vyral_navigation_drawer.dart';
+import '../widgets/vyral_animations.dart';
 import '../widgets/vyral_universal_actions.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -142,7 +142,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     return Scaffold(
       backgroundColor: pageBg,
-      drawer: const VyralNavigationDrawer(),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -153,177 +152,209 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      VyralOpenNavMenuButton(color: heading),
-                      const Spacer(),
-                      const VyralUniversalActions(),
-                    ],
+                  FadeSlideIn(
+                    child: Row(
+                      children: [
+                        const Spacer(),
+                        const VyralUniversalActions(),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 14),
-                  Center(
-                    child: Text(
-                      'vyral',
-                      style: VyralTypography.display(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: heading,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  Text(
-                    'Create account',
-                    style: VyralTypography.display(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: heading,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Join the community',
-                    style: VyralTypography.inter(
-                      fontSize: 14,
-                      color: bodyText,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  _LabeledInput(
-                    label: 'Full Name',
-                    hint: 'Full Name',
-                    controller: _fullNameController,
-                    backgroundColor: inputBg,
-                    borderColor: inputBorder,
-                    textColor: inputText,
-                    labelColor: bodyText,
-                    placeholderColor: VyralColors.placeholder,
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 12),
-                  _LabeledInput(
-                    label: 'Username',
-                    hint: '@username',
-                    controller: _usernameController,
-                    backgroundColor: inputBg,
-                    borderColor: inputBorder,
-                    textColor: inputText,
-                    labelColor: bodyText,
-                    placeholderColor: VyralColors.placeholder,
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 12),
-                  _LabeledInput(
-                    label: 'Email',
-                    hint: 'email@example.com',
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    backgroundColor: inputBg,
-                    borderColor: _emailController.text.isEmpty || _emailValid
-                        ? inputBorder
-                        : VyralColors.error,
-                    textColor: inputText,
-                    labelColor: bodyText,
-                    placeholderColor: VyralColors.placeholder,
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 12),
-                  _LabeledInput(
-                    label: 'Password',
-                    hint: 'min. 8 characters',
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    backgroundColor: inputBg,
-                    borderColor: inputBorder,
-                    textColor: inputText,
-                    labelColor: bodyText,
-                    placeholderColor: VyralColors.placeholder,
-                    suffixIcon: IconButton(
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: bodyText,
-                        size: 22,
-                      ),
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 12),
-                  _StrengthBar(
-                    activeLevel: _passwordStrengthLevel,
-                    activeColor: isDark ? VyralColors.softPink : VyralColors.primaryRose,
-                    inactiveColor: divider,
-                    textColor: isDark ? VyralColors.softPink : VyralColors.primaryDark,
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: _submitting || !_canSubmit ? null : _onCreateAccount,
-                      style: ElevatedButton.styleFrom(
-                        elevation: 0,
-                        backgroundColor: _canSubmit ? buttonEnabledBg : buttonDisabledBg,
-                        foregroundColor: _canSubmit ? buttonEnabledFg : buttonDisabledFg,
-                        disabledBackgroundColor: buttonDisabledBg,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(26),
-                        ),
-                      ),
-                      child: _submitting
-                          ? SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: _canSubmit ? buttonEnabledFg : buttonDisabledFg,
-                              ),
-                            )
-                          : Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Continue',
-                                  style: VyralTypography.inter(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: _canSubmit ? buttonEnabledFg : buttonDisabledFg,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Icon(
-                                  Icons.arrow_forward,
-                                  size: 16,
-                                  color: _canSubmit ? buttonEnabledFg : buttonDisabledFg,
-                                ),
-                              ],
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 80),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: Text(
+                            'vyral',
+                            style: VyralTypography.display(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: heading,
                             ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Already have an account? ',
-                        style: VyralTypography.inter(
-                          fontSize: 14,
-                          color: bodyText,
+                          ),
                         ),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
-                        child: Text(
-                          'Log in',
-                          style: VyralTypography.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                        const SizedBox(height: 28),
+                        Text(
+                          'Create account',
+                          style: VyralTypography.display(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
                             color: heading,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Join the community',
+                          style: VyralTypography.inter(
+                            fontSize: 14,
+                            color: bodyText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 170),
+                    child: Column(
+                      children: [
+                        _LabeledInput(
+                          label: 'Full Name',
+                          hint: 'Full Name',
+                          controller: _fullNameController,
+                          backgroundColor: inputBg,
+                          borderColor: inputBorder,
+                          textColor: inputText,
+                          labelColor: bodyText,
+                          placeholderColor: VyralColors.placeholder,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 12),
+                        _LabeledInput(
+                          label: 'Username',
+                          hint: '@username',
+                          controller: _usernameController,
+                          backgroundColor: inputBg,
+                          borderColor: inputBorder,
+                          textColor: inputText,
+                          labelColor: bodyText,
+                          placeholderColor: VyralColors.placeholder,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 250),
+                    child: Column(
+                      children: [
+                        _LabeledInput(
+                          label: 'Email',
+                          hint: 'email@example.com',
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          backgroundColor: inputBg,
+                          borderColor: _emailController.text.isEmpty || _emailValid
+                              ? inputBorder
+                              : VyralColors.error,
+                          textColor: inputText,
+                          labelColor: bodyText,
+                          placeholderColor: VyralColors.placeholder,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 12),
+                        _LabeledInput(
+                          label: 'Password',
+                          hint: 'min. 8 characters',
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          backgroundColor: inputBg,
+                          borderColor: inputBorder,
+                          textColor: inputText,
+                          labelColor: bodyText,
+                          placeholderColor: VyralColors.placeholder,
+                          suffixIcon: IconButton(
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: bodyText,
+                              size: 22,
+                            ),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 12),
+                        _StrengthBar(
+                          activeLevel: _passwordStrengthLevel,
+                          activeColor: isDark ? VyralColors.softPink : VyralColors.primaryRose,
+                          inactiveColor: divider,
+                          textColor: isDark ? VyralColors.softPink : VyralColors.primaryDark,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 330),
+                    child: AnimatedPressable(
+                      enabled: !_submitting,
+                      child: SizedBox(
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: _submitting || !_canSubmit ? null : _onCreateAccount,
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: _canSubmit ? buttonEnabledBg : buttonDisabledBg,
+                            foregroundColor: _canSubmit ? buttonEnabledFg : buttonDisabledFg,
+                            disabledBackgroundColor: buttonDisabledBg,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(26),
+                            ),
+                          ),
+                          child: _submitting
+                              ? SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: _canSubmit ? buttonEnabledFg : buttonDisabledFg,
+                                  ),
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Continue',
+                                      style: VyralTypography.inter(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        color: _canSubmit ? buttonEnabledFg : buttonDisabledFg,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Icon(
+                                      Icons.arrow_forward,
+                                      size: 16,
+                                      color: _canSubmit ? buttonEnabledFg : buttonDisabledFg,
+                                    ),
+                                  ],
+                                ),
+                        ),
                       ),
-                    ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 400),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Already have an account? ',
+                          style: VyralTypography.inter(
+                            fontSize: 14,
+                            color: bodyText,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+                          child: Text(
+                            'Log in',
+                            style: VyralTypography.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: heading,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 8),
                 ],

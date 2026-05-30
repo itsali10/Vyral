@@ -139,6 +139,18 @@ export class UsersController {
     return this.usersService.getSavedPosts(user.id, page, limit);
   }
 
+  @Get('me/liked')
+  @ApiOperation({ summary: 'Get own liked posts' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 12 })
+  getMyLiked(
+    @CurrentUser() user: SupabaseUser,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit: number,
+  ) {
+    return this.usersService.getLikedPosts(user.id, user.id, page, limit);
+  }
+
   @Get('me/posts')
   @ApiOperation({ summary: 'Get own posts (feed shape)' })
   async getMyPosts(
@@ -173,6 +185,19 @@ export class UsersController {
     @Param('id') targetId: string,
   ) {
     return this.usersService.getProfile(user.id, targetId);
+  }
+
+  @Get(':id/liked')
+  @ApiOperation({ summary: "Get a user's liked posts (respects showLikesPublicly)" })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 12 })
+  getUserLiked(
+    @CurrentUser() user: SupabaseUser,
+    @Param('id') targetId: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit: number,
+  ) {
+    return this.usersService.getLikedPosts(user.id, targetId, page, limit);
   }
 
   @Get(':id/posts')

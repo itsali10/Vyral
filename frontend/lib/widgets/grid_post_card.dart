@@ -4,6 +4,7 @@ import '../theme/vyral_typography.dart';
 
 import '../services/settings_preferences.dart';
 import '../theme/vyral_theme.dart';
+import 'vyral_animations.dart';
 
 class ExploreGridItem {
   const ExploreGridItem({
@@ -32,7 +33,9 @@ class GridPostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageH = item.height - 36;
-    return GestureDetector(
+    return AnimatedPressable(
+      scaleFactor: 0.97,
+      child: GestureDetector(
       onTap: onTap,
       child: SizedBox(
       height: item.height,
@@ -56,8 +59,8 @@ class GridPostCard extends StatelessWidget {
                       memCacheWidth:
                           SettingsPreferences.instance.dataSaver ? 480 : null,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(color: item.imageColor),
-                      errorWidget: (_, __, ___) => Container(color: item.imageColor),
+                      placeholder: (_, _) => Container(color: item.imageColor),
+                      errorWidget: (_, _, _) => Container(color: item.imageColor),
                     )
                   : Container(
                       width: double.infinity,
@@ -102,6 +105,7 @@ class GridPostCard extends StatelessWidget {
         ),
       ),
       ),
+    ),
     );
   }
 }
