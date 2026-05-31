@@ -7,13 +7,18 @@ REST backend for the Vyral Flutter app: authentication, posts, feed, explore, us
 - **NestJS** + **TypeORM** + **PostgreSQL**
 - **Supabase Auth** (JWT validation via `AuthGuard`)
 - **Swagger** at `/docs`
-- Static uploads served at `/uploads/`
+- Media uploads via **Supabase Storage** (public `media` bucket)
 
 ## Setup
 
 ```bash
 npm install
 cp .env.example .env   # if present; otherwise create .env
+```
+
+In Supabase **SQL Editor**, run `scripts/setup-storage.sql` once to create the public `media` bucket.
+
+```bash
 npm run start:dev
 ```
 
@@ -31,6 +36,7 @@ Add these Environment Variables in Vercel before testing endpoints:
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_STORAGE_BUCKET` (default `media`; create bucket via `scripts/setup-storage.sql`)
 - `API_PUBLIC_URL` set to your deployed backend URL, for example `https://vyral-backend.vercel.app`
 
 Do not rely on `backend/.env` in production; Vercel does not read local `.env`
@@ -44,7 +50,7 @@ files from your machine after deployment.
 | Posts   | `GET /posts/feed`, `POST /posts`, `GET/PATCH/DELETE /posts/:id`, like/save/comment |
 | Explore | `GET /explore/posts?q=&category=`                                                  |
 | Users   | `GET/PATCH /users/me`, `GET /users/:id`, follow/unfollow, collections, settings    |
-| Upload  | `POST /upload` (multipart image → `uploads/`)                                      |
+| Upload  | `POST /upload` (multipart image → Supabase Storage public URL)                   |
 
 All protected routes use `Authorization: Bearer <access_token>`.
 

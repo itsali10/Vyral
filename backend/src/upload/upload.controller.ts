@@ -25,7 +25,9 @@ export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Upload image or video; returns public URL' })
+  @ApiOperation({
+    summary: 'Upload image or video to Supabase Storage; returns public URL',
+  })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(
     FileInterceptor('file', {

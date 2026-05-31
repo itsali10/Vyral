@@ -4,8 +4,9 @@
 
 ```powershell
 cd backend
-# Ensure .env has DATABASE_URL, SUPABASE_* keys, PORT=3000, API_PUBLIC_URL=http://localhost:3000
+# Ensure .env has DATABASE_URL, SUPABASE_* keys, SUPABASE_STORAGE_BUCKET=media, PORT=3000
 npm install
+# In Supabase SQL Editor, run scripts/setup-storage.sql once
 npm run migration:run
 npm run start:dev
 ```
