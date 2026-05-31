@@ -126,11 +126,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final pageBg = isDark ? VyralColors.background : VyralColors.mainBackground;
-    final panelBg = isDark ? VyralColors.surface : VyralColors.mainBackground;
     final heading = isDark ? VyralColors.white : VyralColors.primaryText;
     final bodyText = isDark ? VyralColors.dustyRose : VyralColors.secondaryText;
     final inputBg = isDark ? VyralColors.card : VyralColors.cardBackground;
-    final inputBorder = isDark ? VyralColors.blueGray : VyralColors.border;
     final inputText = isDark ? VyralColors.offWhite : VyralColors.primaryText;
     final divider = isDark ? VyralColors.blueGray.withValues(alpha: 0.35) : VyralColors.border;
     final buttonEnabledBg = isDark ? VyralColors.softPink : VyralColors.primaryRose;
@@ -146,11 +144,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Container(
-              color: panelBg,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                   const SizedBox(height: 12),
                   FadeSlideIn(
                     child: Row(
@@ -206,7 +202,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           hint: 'Full Name',
                           controller: _fullNameController,
                           backgroundColor: inputBg,
-                          borderColor: inputBorder,
                           textColor: inputText,
                           labelColor: bodyText,
                           placeholderColor: VyralColors.placeholder,
@@ -218,7 +213,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           hint: '@username',
                           controller: _usernameController,
                           backgroundColor: inputBg,
-                          borderColor: inputBorder,
                           textColor: inputText,
                           labelColor: bodyText,
                           placeholderColor: VyralColors.placeholder,
@@ -238,9 +232,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
                           backgroundColor: inputBg,
-                          borderColor: _emailController.text.isEmpty || _emailValid
-                              ? inputBorder
-                              : VyralColors.error,
+                          hasError: _emailController.text.isNotEmpty && !_emailValid,
                           textColor: inputText,
                           labelColor: bodyText,
                           placeholderColor: VyralColors.placeholder,
@@ -253,7 +245,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           controller: _passwordController,
                           obscureText: _obscurePassword,
                           backgroundColor: inputBg,
-                          borderColor: inputBorder,
                           textColor: inputText,
                           labelColor: bodyText,
                           placeholderColor: VyralColors.placeholder,
@@ -358,7 +349,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                   const SizedBox(height: 8),
                 ],
-              ),
             ),
           ),
         ),
@@ -367,18 +357,27 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 }
 
+OutlineInputBorder _fieldBorder(bool hasError) {
+  return OutlineInputBorder(
+    borderRadius: BorderRadius.circular(14),
+    borderSide: hasError
+        ? const BorderSide(color: VyralColors.error)
+        : BorderSide.none,
+  );
+}
+
 class _LabeledInput extends StatelessWidget {
   const _LabeledInput({
     required this.label,
     required this.hint,
     required this.controller,
     required this.backgroundColor,
-    required this.borderColor,
     required this.textColor,
     required this.labelColor,
     required this.placeholderColor,
     this.keyboardType,
     this.obscureText = false,
+    this.hasError = false,
     this.suffixIcon,
     this.onChanged,
   });
@@ -387,7 +386,7 @@ class _LabeledInput extends StatelessWidget {
   final String hint;
   final TextEditingController controller;
   final Color backgroundColor;
-  final Color borderColor;
+  final bool hasError;
   final Color textColor;
   final Color labelColor;
   final Color placeholderColor;
@@ -424,20 +423,13 @@ class _LabeledInput extends StatelessWidget {
             hintStyle: VyralTypography.inter(fontSize: 15, color: placeholderColor),
             filled: true,
             fillColor: backgroundColor,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             suffixIcon: suffixIcon,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: borderColor),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: borderColor),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: borderColor, width: 1.2),
-            ),
+            border: _fieldBorder(hasError),
+            enabledBorder: _fieldBorder(hasError),
+            focusedBorder: _fieldBorder(hasError),
+            errorBorder: _fieldBorder(true),
+            focusedErrorBorder: _fieldBorder(true),
           ),
         ),
       ],
