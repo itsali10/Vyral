@@ -99,7 +99,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           left: 0,
                           right: 0,
                           child: Text(
-                            'Vyral',
+                            'vyral',
                             textAlign: TextAlign.center,
                             style: VyralTypography.display(
                               fontSize: 72,
