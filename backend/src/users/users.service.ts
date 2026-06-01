@@ -11,7 +11,6 @@ import { User } from '../entities/user.entity';
 import { UserSettings } from '../entities/user-settings.entity';
 import { UserBlock } from '../entities/user-block.entity';
 import { Post } from '../entities/post.entity';
-import { Reel } from '../entities/reel.entity';
 import { SavedPost } from '../entities/saved-post.entity';
 import { SavedCollection } from '../entities/saved-collection.entity';
 import { Follow } from '../entities/follow.entity';
@@ -32,8 +31,6 @@ export class UsersService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(Post)
     private readonly postRepo: Repository<Post>,
-    @InjectRepository(Reel)
-    private readonly reelRepo: Repository<Reel>,
     @InjectRepository(SavedPost)
     private readonly savedPostRepo: Repository<SavedPost>,
     @InjectRepository(SavedCollection)
@@ -305,29 +302,6 @@ export class UsersService {
       caption: p.caption,
       createdAt: p.createdAt,
     }));
-  }
-
-  async getUserReels(
-    _requesterId: string,
-    targetId: string,
-    page = 1,
-    limit = 12,
-  ) {
-    await this.assertUserExists(targetId);
-    return this.reelRepo.find({
-      where: { authorId: targetId },
-      order: { createdAt: 'DESC' },
-      take: limit,
-      skip: (page - 1) * limit,
-      select: {
-        id: true,
-        videoUrl: true,
-        likesCount: true,
-        commentsCount: true,
-        viewsCount: true,
-        createdAt: true,
-      },
-    });
   }
 
   async getSavedCollections(userId: string) {

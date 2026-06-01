@@ -4,7 +4,6 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { User } from '../entities/user.entity';
 import { Post } from '../entities/post.entity';
-import { Reel } from '../entities/reel.entity';
 import { SavedPost } from '../entities/saved-post.entity';
 import { SavedCollection } from '../entities/saved-collection.entity';
 import { Follow } from '../entities/follow.entity';
@@ -19,7 +18,6 @@ import { SupabaseModule } from '../supabase/supabase.module';
     TypeOrmModule.forFeature([
       User,
       Post,
-      Reel,
       SavedPost,
       SavedCollection,
       Follow,

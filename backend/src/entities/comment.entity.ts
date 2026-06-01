@@ -8,7 +8,6 @@ import {
 } from 'typeorm';
 import { User } from './user.entity';
 import { Post } from './post.entity';
-import { Reel } from './reel.entity';
 
 @Entity('comments')
 export class Comment {
@@ -20,9 +19,6 @@ export class Comment {
 
   @Column({ nullable: true })
   postId: string;
-
-  @Column({ nullable: true })
-  reelId: string;
 
   @Column({ type: 'text' })
   text: string;
@@ -43,11 +39,4 @@ export class Comment {
   })
   @JoinColumn({ name: 'postId' })
   post: Post;
-
-  @ManyToOne(() => Reel, (reel) => reel.comments, {
-    nullable: true,
-    onDelete: 'CASCADE',
-  })
-  @JoinColumn({ name: 'reelId' })
-  reel: Reel;
 }

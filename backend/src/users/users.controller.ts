@@ -229,17 +229,4 @@ export class UsersController {
     const items = await this.usersService.getUserPins(targetId, page, limit);
     return { items };
   }
-
-  @Get(':id/reels')
-  @ApiOperation({ summary: "Get a user's reels" })
-  @ApiQuery({ name: 'page', required: false, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, example: 12 })
-  getUserReels(
-    @CurrentUser() user: SupabaseUser,
-    @Param('id') targetId: string,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit: number,
-  ) {
-    return this.usersService.getUserReels(user.id, targetId, page, limit);
-  }
 }
