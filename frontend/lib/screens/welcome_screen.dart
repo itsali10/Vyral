@@ -99,7 +99,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           left: 0,
                           right: 0,
                           child: Text(
-                            'vyral',
+                            'Vyral',
                             textAlign: TextAlign.center,
                             style: VyralTypography.display(
                               fontSize: 72,
@@ -185,7 +185,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             ),
                           ),
                           child: Text(
-                            'Create account',
+                            'Create Account',
                             style: VyralTypography.inter(
                               fontSize: 28 / 2,
                               fontWeight: FontWeight.w700,
@@ -206,7 +206,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     child: TextButton(
                       onPressed: () => Navigator.pushNamed(context, '/login'),
                       child: Text(
-                        'Log in',
+                        'Log In',
                         style: VyralTypography.inter(
                           fontSize: 26 / 2,
                           fontWeight: FontWeight.w700,
